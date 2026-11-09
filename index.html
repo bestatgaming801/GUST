@@ -16681,9 +16681,10 @@ window._libcurlReady = true;
                 } catch (curlErr) {
                     const msg = (curlErr.message || '').toLowerCase();
                     const isAborted = curlErr.name === 'AbortError' || (opts.signal?.aborted);
+                    const isConnectFailure = Number(curlErr.code) === 7 || msg.includes('could not connect') || msg.includes('failed to connect') || msg.includes('connection refused') || msg.includes('error code 7');
                     // Expanded kill-pattern list — catches Lightspeed mid-stream resets,
                     // RST packets, TLS termination, and generic WebSocket drops
-                    const isWispDrop = !isAborted && (
+                    const isWispDrop = !isAborted && !isConnectFailure && (
                         msg.includes('aborted') || msg.includes('operation') ||
                         msg.includes('network') || msg.includes('wisp') ||
                         msg.includes('socket') || msg.includes('closed') ||
@@ -21630,7 +21631,10 @@ _VIEWER_DL_JS +
                         const _navHost = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
                         const _poolOn = poolModeOn();
                         markWispFailed(WISP, _navHost);
-                        let _candidates = _poolOn ? rankPoolCandidates(_navHost, WISP).slice(0, 4) : [];
+                        let _candidates = _isConnectionFailure
+                            ? getWispPool().filter(_candidate => _candidate !== WISP)
+                                .sort((a, b) => (wispHealth[a]?.latency ?? 5000) - (wispHealth[b]?.latency ?? 5000))
+                            : (_poolOn ? rankPoolCandidates(_navHost, WISP).slice(0, 4) : []);
                         if (_fbEnabled && _fbWisp && !_candidates.includes(_fbWisp)) _candidates.push(_fbWisp);
 
                         if (_candidates.length) {
