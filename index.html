@@ -7575,6 +7575,7 @@
                                     <button data-engine="brave">Brave</button>
                                     <button data-engine="ddg">DuckDuckGo</button>
                                     <button data-engine="bing">Bing</button>
+                                    <button data-engine="google">Google</button>
                                 </div>
                             </div>
                             <input id="ntSearch" placeholder="Search or enter address" autocomplete="off">
@@ -12771,7 +12772,7 @@ window._libcurlReady = true;
             let selectedEngine = (function () {
                 try {
                     const saved = ls.getItem('gust:engine:v1');
-                    return ['brave', 'ddg', 'bing'].includes(saved) ? saved : 'ddg';
+                    return ['brave', 'ddg', 'bing', 'google'].includes(saved) ? saved : 'ddg';
                 } catch { return 'ddg'; }
             })();
 
@@ -21582,6 +21583,9 @@ _VIEWER_DL_JS +
                     const _fbDns     = (() => { try { return ls.getItem('gust:fallback:dns')     === '1'; } catch { return false; } })();
 
                     const _eMsg    = (e.message || '').toLowerCase();
+                    const _isConnectionFailure = Number(e.code) === 7 || _eMsg.includes('could not connect') || _eMsg.includes('failed to connect') || _eMsg.includes('connection refused') || _eMsg.includes('error code 7');
+                    const _retryAttempts = _isConnectionFailure ? 1 : _fbRetries;
+                    const _retryDelay = _isConnectionFailure ? 0 : _fbDelay;
                     const _isDns     = _eMsg.includes('dns') || _eMsg.includes('getaddrinfo') || _eMsg.includes('name resolution');
                     const _isTimeout = _eMsg.includes('timeout') || _eMsg.includes('timed out');
                     const _is5xx     = _eMsg.includes('500') || _eMsg.includes('502') || _eMsg.includes('503') || _eMsg.includes('504') || _eMsg.includes('internal server');
@@ -21589,13 +21593,15 @@ _VIEWER_DL_JS +
                     const _triggerMatches = (_isDns && _fbDns) || (_isTimeout && _fbTimeout) || (_is5xx && _fb5xx)
                         || (!_isDns && !_isTimeout && !_is5xx); // generic errors always eligible
 
-                    const _mainRetries = (() => { try { return parseInt(ls.getItem('gust:main:retries'), 10) || 3; } catch { return 3; } })();
+                    const _mainRetries = _isConnectionFailure ? 0 : (() => { try { return parseInt(ls.getItem('gust:main:retries'), 10) || 3; } catch { return 3; } })();
                     const _primaryHost = WISP.replace(/^wss?:\/\//, '').split('/')[0];
 
                     if (!_isRetry && _triggerMatches && !tabAbortControllers.get(initiatorTabId)?.signal?.aborted) {
 
                         // ── Phase 1: retry on primary WISP ──────────────────────
-                        log(`<i class="fas fa-rotate-left" style="color:var(--warn)"></i><span style="color:var(--warn)">Initial attempt failed (${_primaryHost}):</span> <span style="color:var(--tx3)">${e.message.slice(0, 55)}</span>`, 'warn');
+                        log(_isConnectionFailure
+                            ? `<i class="fas fa-rotate-left" style="color:var(--warn)"></i><span style="color:var(--warn)">Connection failed on ${_primaryHost}; switching relays:</span> <span style="color:var(--tx3)">${e.message.slice(0, 55)}</span>`
+                            : `<i class="fas fa-rotate-left" style="color:var(--warn)"></i><span style="color:var(--warn)">Initial attempt failed (${_primaryHost}):</span> <span style="color:var(--tx3)">${e.message.slice(0, 55)}</span>`, 'warn');
 
                         let _mainSuccess = false;
                         for (let _mi = 0; _mi < _mainRetries; _mi++) {
@@ -21646,11 +21652,11 @@ _VIEWER_DL_JS +
                                 }
 
                                 let _candSuccess = false;
-                                for (let _ri = 0; _ri < _fbRetries; _ri++) {
+                                for (let _ri = 0; _ri < _retryAttempts; _ri++) {
                                     if (tabAbortControllers.get(initiatorTabId)?.signal?.aborted) break;
                                     try {
-                                        log(`<i class="fas fa-rotate-left" style="color:var(--warn)"></i><span style="color:var(--warn)">Retry ${_ri + 1}/${_fbRetries}</span> <span style="color:var(--tx3);font-family:var(--mono)">via ${_candHost}</span>${_fbDelay > 0 && _ri > 0 ? ` <span style="color:var(--tx3)">(after ${_fbDelay}s)</span>` : ''}`, 'warn');
-                                        if (_fbDelay > 0 && _ri > 0) await new Promise(r => setTimeout(r, _fbDelay * 1000));
+                                        log(`<i class="fas fa-rotate-left" style="color:var(--warn)"></i><span style="color:var(--warn)">Retry ${_ri + 1}/${_retryAttempts}</span> <span style="color:var(--tx3);font-family:var(--mono)">via ${_candHost}</span>${_retryDelay > 0 && _ri > 0 ? ` <span style="color:var(--tx3)">(after ${_retryDelay}s)</span>` : ''}`, 'warn');
+                                        if (_retryDelay > 0 && _ri > 0) await new Promise(r => setTimeout(r, _retryDelay * 1000));
                                         if (tabAbortControllers.get(initiatorTabId)?.signal?.aborted) break;
                                         await go(url, false, method, body, true);
                                         _candSuccess = true;
@@ -21659,10 +21665,10 @@ _VIEWER_DL_JS +
                                         break;
                                     } catch (_candErr) {
                                         if (_candErr.name === 'AbortError') break;
-                                        if (_ri + 1 < _fbRetries) {
-                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">Retry ${_ri + 1}/${_fbRetries} failed:</span> <span style="color:var(--tx3)">${_candErr.message.slice(0, 55)}</span>`, 'err');
+                                        if (_ri + 1 < _retryAttempts) {
+                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">Retry ${_ri + 1}/${_retryAttempts} failed:</span> <span style="color:var(--tx3)">${_candErr.message.slice(0, 55)}</span>`, 'err');
                                         } else {
-                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">All ${_fbRetries} retries failed on ${_candHost}</span>`, 'err');
+                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">All ${_retryAttempts} retries failed on ${_candHost}</span>`, 'err');
                                         }
                                     }
                                 }
@@ -23013,11 +23019,7 @@ _VIEWER_DL_JS +
                     if (ls.getItem('gust:showclock:v1') !== 'false') setInterval(updateClock, 1000 * 10);
                     loadSavedWallpaper();
                     if (ntEngineLabel) {
-                        if (selectedEngine === 'google' || selectedEngine === 'brave') {
-                            selectedEngine = 'ddg';
-                            try { ls.setItem('gust:engine:v1', 'ddg'); } catch { }
-                        }
-                        const engineNames = { brave: 'Brave', ddg: 'DuckDuckGo', bing: 'Bing' };
+                        const engineNames = { brave: 'Brave', ddg: 'DuckDuckGo', bing: 'Bing', google: 'Google' };
                         ntEngineLabel.textContent = engineNames[selectedEngine] || 'DuckDuckGo';
                         ntEngineDropdown.querySelectorAll('button').forEach(b => {
                             b.classList.toggle('active', b.dataset.engine === selectedEngine);
@@ -23431,7 +23433,8 @@ _VIEWER_DL_JS +
                 const engines = [
                     { key: "brave", name: "Brave", url: SEARCH_ENGINES.brave },
                     { key: "ddg", name: "DuckDuckGo", url: SEARCH_ENGINES.ddg },
-                    { key: "bing", name: "Bing", url: SEARCH_ENGINES.bing }
+                    { key: "bing", name: "Bing", url: SEARCH_ENGINES.bing },
+                    { key: "google", name: "Google", url: SEARCH_ENGINES.google }
                 ];
                 engines.forEach(eng => {
                     const btn = document.createElement("button");
