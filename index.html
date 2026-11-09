@@ -30267,8 +30267,13 @@ _VIEWER_DL_JS +
 
     <script>
         (() => {
+            const RELEASE_COUNTDOWN_ENABLED = false;
             const overlay = document.getElementById('releaseCountdown');
             if (!overlay) return;
+            if (!RELEASE_COUNTDOWN_ENABLED) {
+                overlay.remove();
+                return;
+            }
 
             const releaseAt = Date.UTC(2026, 10, 10, 18, 0, 0);
             const celebrationKey = 'scout:release-countdown:celebrated:v1';
