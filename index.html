@@ -2598,6 +2598,43 @@
             align-items: center;
         }
 
+        .scout-hub { width: min(760px, 100%); margin: -20px 0 34px; text-align: left; }
+        .scout-hub-heading { margin: 0 0 10px; color: var(--tx2); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-align: center; text-transform: uppercase; }
+        .scout-hub-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .scout-hub-card {
+            display: flex; align-items: center; gap: 10px; min-width: 0; padding: 11px 12px;
+            border: 1px solid rgba(255,255,255,.16); border-radius: 10px;
+            background: rgba(13,15,18,.68); color: var(--tx); cursor: pointer; text-align: left;
+            transition: border-color .15s, background .15s, transform .15s;
+        }
+        .scout-hub-card:hover { border-color: var(--ac); background: rgba(157,229,255,.1); transform: translateY(-1px); }
+        .scout-hub-card i { width: 18px; color: var(--ac); text-align: center; }
+        .scout-hub-card span { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+        .scout-hub-card:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+        #scoutHubModal .bookmark-modal-content,
+        #readerModal .bookmark-modal-content {
+            width: min(820px, calc(100vw - 32px)); max-height: min(88vh, 760px);
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+        .scout-hub-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .scout-hub-modal-head i { color: var(--ac); font-size: 20px; }
+        .scout-hub-modal-head h2 { color: var(--tx); font-size: 19px; }
+        .scout-hub-modal-body { min-height: 120px; overflow-y: auto; padding: 2px 3px 12px; color: var(--tx2); font-size: 13px; line-height: 1.65; }
+        .scout-hub-modal-body h3 { margin: 15px 0 6px; color: var(--tx); font-size: 14px; }
+        .scout-hub-modal-body a { color: var(--ac); }
+        .scout-hub-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--bd); }
+        .scout-hub-row-title { color: var(--tx); font-weight: 600; }
+        .scout-hub-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .scout-hub-action { padding: 8px 12px; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg2); color: var(--tx); cursor: pointer; }
+        .scout-hub-action:hover { border-color: var(--ac); }
+        .scout-hub-action.primary { border-color: var(--ac); background: var(--ac); color: #0b1015; font-weight: 700; }
+        .scout-hub-status { min-height: 1.5em; margin-top: 8px; color: var(--tx3); font-size: 12px; }
+        .scout-hub-faq details { padding: 10px 0; border-top: 1px solid var(--bd); }
+        .scout-hub-faq summary { color: var(--tx); cursor: pointer; font-weight: 600; }
+        .scout-hub-faq p { margin: 7px 0 0; }
+        #readerText { overflow: auto; max-height: 65vh; white-space: pre-wrap; color: var(--tx); font-family: Georgia, serif; font-size: 17px; line-height: 1.8; }
+        #readerTitle { margin-bottom: 14px; color: var(--tx); font-size: 22px; }
+
         .nt-fav-wrapper {
             display: flex;
             flex-direction: column;
@@ -5262,6 +5299,10 @@
             .nt-brand i { font-size: .9em; }
             .nt-search { width: min(700px, 100%); }
             .nt-favorites { gap: 9px; padding-bottom: 20px; }
+            .scout-hub { margin-top: -14px; }
+            .scout-hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .scout-hub-card { padding: 10px; }
+            #readerText { font-size: 16px; }
         }
 
         @media (max-width: 540px) {
@@ -7562,6 +7603,9 @@
                     <button class="omni-btn" id="bookmarkBtn" title="Bookmark (Ctrl+D)">
                         <i class="far fa-bookmark"></i>
                     </button>
+                    <button class="omni-btn" id="readerModeBtn" title="Open reader view">
+                        <i class="fas fa-book-open"></i>
+                    </button>
                     <button class="omni-btn go" id="go" title="Go">
                         <i class="fas fa-arrow-right"></i>
                     </button>
@@ -7680,6 +7724,45 @@
                             <button id="ntSearchBtn"><i class="fas fa-arrow-right"></i></button>
                         </div>
                         <div class="nt-favorites" id="ntFavorites"></div>
+                        <section class="scout-hub" aria-label="Scout features and resources">
+                            <h2 class="scout-hub-heading">Explore Scout</h2>
+                            <div class="scout-hub-grid">
+                                <button class="scout-hub-card" data-hub-action="tour"><i class="fas fa-compass"></i><span>Interactive tour</span></button>
+                                <button class="scout-hub-card" data-hub-action="updates"><i class="fas fa-sparkles"></i><span>What's new</span></button>
+                                <button class="scout-hub-card" data-hub-action="downloads"><i class="fas fa-download"></i><span>Downloads &amp; status</span></button>
+                                <button class="scout-hub-card" data-hub-action="help"><i class="fas fa-circle-question"></i><span>Help &amp; FAQ</span></button>
+                                <button class="scout-hub-card" data-hub-action="workspaces"><i class="fas fa-layer-group"></i><span>Workspaces</span></button>
+                                <button class="scout-hub-card" data-hub-action="sessions"><i class="fas fa-window-restore"></i><span>Saved tab groups</span></button>
+                                <button class="scout-hub-card" data-hub-action="transfer"><i class="fas fa-right-left"></i><span>Move data between devices</span></button>
+                                <button class="scout-hub-card" data-hub-action="privacy"><i class="fas fa-shield-halved"></i><span>Privacy controls</span></button>
+                                <button class="scout-hub-card" data-hub-action="translate"><i class="fas fa-language"></i><span>Translation settings</span></button>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+                <div class="bookmark-modal" id="scoutHubModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="scoutHubTitle">
+                    <div class="bookmark-modal-content">
+                        <div class="scout-hub-modal-head">
+                            <i class="fas fa-earth-americas"></i>
+                            <h2 id="scoutHubTitle">Explore Scout</h2>
+                        </div>
+                        <div class="scout-hub-modal-body" id="scoutHubContent"></div>
+                        <div class="bookmark-modal-buttons">
+                            <button class="bookmark-modal-btn secondary" id="scoutHubClose">Close</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bookmark-modal" id="readerModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+                    <div class="bookmark-modal-content">
+                        <h2 id="readerTitle"></h2>
+                        <div id="readerText"></div>
+                        <div class="bookmark-modal-buttons" style="margin-top:16px;">
+                            <button class="bookmark-modal-btn secondary" id="readerSmaller" title="Decrease text size">A−</button>
+                            <button class="bookmark-modal-btn secondary" id="readerLarger" title="Increase text size">A+</button>
+                            <button class="bookmark-modal-btn primary" id="readerClose">Done</button>
+                        </div>
                     </div>
                 </div>
 
@@ -15064,7 +15147,7 @@ window._libcurlReady = true;
                 cacheSize = 0;
                 const cs = $("settingsCacheSize");
                 if (cs) cs.textContent = "Cache: 0.0 MB";
-                if (!cacheDB) { log("Cache cleared", "info"); return; }
+                if (!cacheDB) { log("Cache cleared", "info"); return true; }
                 try {
                     await new Promise((resolve, reject) => {
                         const tx = cacheDB.transaction('resources', 'readwrite');
@@ -15074,7 +15157,11 @@ window._libcurlReady = true;
                         tx.onabort = () => reject(tx.error);
                     });
                     log("Cache cleared", "info");
-                } catch { }
+                    return true;
+                } catch (error) {
+                    log(`Cache clear failed: ${error?.message || error}`, "err");
+                    return false;
+                }
             }
 
             const memCache = new Map();
@@ -30193,6 +30280,717 @@ _VIEWER_DL_JS +
                 GustExt.onChange(renderIcons);
                 GustExt.init().then(renderIcons);
             })();
+
+            const scoutHubModal = document.getElementById('scoutHubModal');
+            const scoutHubContent = document.getElementById('scoutHubContent');
+            const scoutHubTitle = document.getElementById('scoutHubTitle');
+            const WORKSPACE_META_KEY = '__scout_workspaces_v1';
+            const SAVED_SESSIONS_KEY = 'gust:saved-sessions:v1';
+            const BACKUP_SCHEMA = 'scout-local-backup';
+            const RELEASES_API = 'https://api.github.com/repos/nautilus-os/GUST/releases?per_page=5';
+            const RELEASES_PAGE = 'https://github.com/nautilus-os/GUST/releases';
+            const COMMITS_API = 'https://api.github.com/repos/nautilus-os/GUST/commits?per_page=5';
+            const HOSTED_APP_URL = 'https://gust-browser.vercel.app';
+            const STANDALONE_APP_URL = 'https://cdn.jsdelivr.net/gh/nautilus-os/GUST@latest/svg/site.svg';
+            let releaseRequestId = 0;
+
+            function hubElement(tag, text, className) {
+                const el = document.createElement(tag);
+                if (text !== undefined) el.textContent = text;
+                if (className) el.className = className;
+                return el;
+            }
+
+            function hubButton(text, callback, primary = false) {
+                const button = hubElement('button', text, 'scout-hub-action' + (primary ? ' primary' : ''));
+                button.type = 'button';
+                button.addEventListener('click', callback);
+                return button;
+            }
+
+            function hubStatus(parent, text) {
+                let status = parent.querySelector('.scout-hub-status');
+                if (!status) {
+                    status = hubElement('div', '', 'scout-hub-status');
+                    status.setAttribute('role', 'status');
+                    parent.appendChild(status);
+                }
+                status.textContent = text;
+            }
+
+            function showHub(action) {
+                if (action === 'tour') {
+                    startTutorial(true);
+                    return;
+                }
+                const labels = {
+                    updates: "What's new",
+                    downloads: 'Downloads & release status',
+                    help: 'Help & FAQ',
+                    workspaces: 'Workspaces',
+                    sessions: 'Saved tab groups',
+                    transfer: 'Move data between devices',
+                    privacy: 'Privacy controls'
+                };
+                scoutHubTitle.textContent = labels[action] || 'Explore Scout';
+                scoutHubContent.replaceChildren();
+                scoutHubModal.style.display = 'flex';
+                if (action !== 'updates' && action !== 'downloads') releaseRequestId++;
+
+                if (action === 'updates' || action === 'downloads') {
+                    renderReleasePanel(action);
+                } else if (action === 'help') {
+                    renderHelpPanel();
+                } else if (action === 'workspaces') {
+                    renderWorkspacesPanel();
+                } else if (action === 'sessions') {
+                    renderSessionsPanel();
+                } else if (action === 'transfer') {
+                    renderTransferPanel();
+                } else if (action === 'privacy') {
+                    renderPrivacyPanel();
+                }
+            }
+
+            async function renderReleasePanel(action) {
+                const requestId = ++releaseRequestId;
+                const isDownload = action === 'downloads';
+                const intro = hubElement('p', isDownload
+                    ? 'Release assets and notes are loaded from the Scout project releases. Downloads are provided by GitHub.'
+                    : 'Recent published releases from the Scout project.');
+                scoutHubContent.appendChild(intro);
+                const releaseList = hubElement('div');
+                scoutHubContent.appendChild(releaseList);
+                const footer = hubElement('div', '', 'scout-hub-actions');
+                const releasesLink = hubElement('a', 'Open GitHub releases');
+                releasesLink.href = RELEASES_PAGE;
+                releasesLink.target = '_blank';
+                releasesLink.rel = 'noopener noreferrer';
+                releasesLink.className = 'scout-hub-action';
+                footer.appendChild(releasesLink);
+                const refresh = hubButton('Refresh', () => {
+                    scoutHubContent.replaceChildren();
+                    renderReleasePanel(action);
+                });
+                footer.appendChild(refresh);
+                scoutHubContent.appendChild(footer);
+
+                const status = hubElement('div', 'Checking GitHub for releases…', 'scout-hub-status');
+                status.setAttribute('role', 'status');
+                releaseList.appendChild(status);
+                try {
+                    const response = await fetch(RELEASES_API, {
+                        headers: { Accept: 'application/vnd.github+json' }
+                    });
+                    if (requestId !== releaseRequestId) return;
+                    if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+                    const releases = await response.json();
+                    if (!Array.isArray(releases)) throw new Error('Unexpected release response');
+                    releaseList.replaceChildren();
+                    const items = isDownload ? releases.slice(0, 1) : releases;
+                    if (!items.length) {
+                        if (isDownload) renderCurrentDownloadOptions(releaseList);
+                        else await renderRecentChanges(releaseList, requestId);
+                        return;
+                    }
+                    for (const release of items) {
+                        const card = hubElement('section');
+                        card.style.cssText = 'padding:12px 0;border-top:1px solid var(--bd);';
+                        const releaseName = release.name || 'Scout release';
+                        const releaseVersion = release.tag_name ? ` (${release.tag_name})` : '';
+                        const heading = hubElement('h3', `${releaseName}${releaseVersion}${release.prerelease ? ' · Pre-release' : ''}`);
+                        card.appendChild(heading);
+                        const date = release.published_at ? new Date(release.published_at) : null;
+                        if (date && !Number.isNaN(date.getTime())) {
+                            card.appendChild(hubElement('p', `Published ${date.toLocaleDateString()}`));
+                        }
+                        if (release.body) {
+                            const notes = hubElement('p', release.body);
+                            notes.style.cssText = 'white-space:pre-wrap;max-height:180px;overflow:auto;';
+                            card.appendChild(notes);
+                        }
+                        const assets = Array.isArray(release.assets) ? release.assets : [];
+                        if (assets.length) {
+                            const assetList = hubElement('div', '', 'scout-hub-actions');
+                            for (const asset of assets) {
+                                let assetUrl;
+                                try { assetUrl = new URL(asset.browser_download_url); } catch { continue; }
+                                if (!['github.com', 'objects.githubusercontent.com'].includes(assetUrl.hostname) &&
+                                    !assetUrl.hostname.endsWith('.githubusercontent.com')) continue;
+                                const link = hubElement('a', `${asset.name} (${asset.download_count || 0} downloads)`);
+                                link.href = assetUrl.href;
+                                link.target = '_blank';
+                                link.rel = 'noopener noreferrer';
+                                link.className = 'scout-hub-action';
+                                assetList.appendChild(link);
+                            }
+                            card.appendChild(assetList);
+                        } else if (isDownload) {
+                            card.appendChild(hubElement('p', 'No downloadable files are attached to this release yet. See the release page for source and instructions.'));
+                        }
+                        let releaseUrl;
+                        try { releaseUrl = new URL(release.html_url); } catch { releaseUrl = null; }
+                        if (releaseUrl && releaseUrl.hostname === 'github.com') {
+                            const releaseLink = hubElement('a', 'View release details');
+                            releaseLink.href = releaseUrl.href;
+                            releaseLink.target = '_blank';
+                            releaseLink.rel = 'noopener noreferrer';
+                            card.appendChild(releaseLink);
+                        }
+                        releaseList.appendChild(card);
+                    }
+                    if (isDownload) {
+                        const instructions = hubElement('p', 'Choose the asset that matches your platform. Review the release notes before installing. No native platform installers are listed unless they appear as release assets above.');
+                        instructions.style.marginTop = '12px';
+                        releaseList.appendChild(instructions);
+                    }
+                } catch (error) {
+                    if (requestId !== releaseRequestId) return;
+                    releaseList.replaceChildren();
+                    const message = hubElement('p', `Release information could not be loaded: ${error.message}.`);
+                    releaseList.appendChild(message);
+                    const link = hubElement('a', 'Open the releases page directly');
+                    link.href = RELEASES_PAGE;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    releaseList.appendChild(link);
+                }
+            }
+
+            function renderCurrentDownloadOptions(parent) {
+                const currentVersion = document.querySelector('#newtab .nt-brand .gust-badge-anim')?.textContent.trim() || 'Version not labeled';
+                parent.appendChild(hubElement('p', `Current web build: ${currentVersion}. No formal GitHub release or native OS installers are published right now.`));
+                const links = hubElement('div', '', 'scout-hub-actions');
+                for (const [label, url] of [
+                    ['Open hosted Scout', HOSTED_APP_URL],
+                    ['Download standalone SVG', STANDALONE_APP_URL]
+                ]) {
+                    const link = hubElement('a', label);
+                    link.href = url;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.className = 'scout-hub-action';
+                    links.appendChild(link);
+                }
+                parent.appendChild(links);
+                const instructions = hubElement('ol');
+                instructions.style.cssText = 'padding-left:22px;margin-top:12px;';
+                instructions.appendChild(hubElement('li', 'For the hosted version, open Scout in a modern browser.'));
+                instructions.appendChild(hubElement('li', 'For the standalone option, download the SVG file and open it in a browser that supports SVG and JavaScript.'));
+                instructions.appendChild(hubElement('li', 'Check the release page for future versioned notes and platform-specific assets.'));
+                parent.appendChild(instructions);
+            }
+
+            async function renderRecentChanges(parent, requestId) {
+                parent.appendChild(hubElement('p', 'No formal release notes have been published. Showing recent source changes instead.'));
+                const list = hubElement('div');
+                parent.appendChild(list);
+                try {
+                    const response = await fetch(COMMITS_API, { headers: { Accept: 'application/vnd.github+json' } });
+                    if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+                    const commits = await response.json();
+                    if (requestId !== releaseRequestId) return;
+                    if (!Array.isArray(commits) || !commits.length) {
+                        list.appendChild(hubElement('p', 'No recent source changes are available.'));
+                        return;
+                    }
+                    for (const item of commits) {
+                        const commit = item && item.commit;
+                        if (!commit) continue;
+                        const row = hubElement('div', '', 'scout-hub-row');
+                        const details = hubElement('div');
+                        details.appendChild(hubElement('div', (commit.message || 'Update').split('\n')[0], 'scout-hub-row-title'));
+                        const date = commit.author && commit.author.date ? new Date(commit.author.date) : null;
+                        if (date && !Number.isNaN(date.getTime())) details.appendChild(hubElement('div', date.toLocaleDateString()));
+                        row.appendChild(details);
+                        let commitUrl;
+                        try { commitUrl = new URL(item.html_url); } catch { commitUrl = null; }
+                        if (commitUrl && commitUrl.hostname === 'github.com') {
+                            const link = hubElement('a', 'View');
+                            link.href = commitUrl.href;
+                            link.target = '_blank';
+                            link.rel = 'noopener noreferrer';
+                            row.appendChild(link);
+                        }
+                        list.appendChild(row);
+                    }
+                } catch (error) {
+                    if (requestId !== releaseRequestId) return;
+                    list.appendChild(hubElement('p', `Recent changes could not be loaded: ${error.message}.`));
+                    const link = hubElement('a', 'Browse repository commits');
+                    link.href = 'https://github.com/nautilus-os/GUST/commits';
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    list.appendChild(link);
+                }
+            }
+
+            function renderHelpPanel() {
+                const faq = hubElement('div', '', 'scout-hub-faq');
+                const entries = [
+                    ['How do I browse a site?', 'Enter a web address or search phrase in the address bar or New Tab search. Scout routes pages through its configured WISP proxy.'],
+                    ['A page will not load. What should I try?', 'Reload once, check the connection status and WISP server under Settings → Connection, then open Browser Logs for the request error. Some sites block proxy traffic or require features Scout cannot emulate.'],
+                    ['Where are bookmarks and settings stored?', 'They are saved in this browser profile on this device. Use Move data between devices to export a local backup and import it on another device. Scout does not provide automatic cloud sync.'],
+                    ['How do I translate a page?', 'Open Settings → Language, choose a target language, and use the translate controls. Translation requires a network connection to the configured translation service.'],
+                    ['How do I clear local browsing data?', 'Use Privacy controls to clear recent history or reset this Scout profile. Resetting removes local settings, bookmarks, tabs, and saved sessions.'],
+                    ['How do I report a bug or find a release?', 'Check the Downloads & release status panel and the project repository for the latest releases and support information.']
+                ];
+                for (const [question, answer] of entries) {
+                    const details = hubElement('details');
+                    details.appendChild(hubElement('summary', question));
+                    details.appendChild(hubElement('p', answer));
+                    faq.appendChild(details);
+                }
+                scoutHubContent.appendChild(faq);
+                const actions = hubElement('div', '', 'scout-hub-actions');
+                actions.appendChild(hubButton('Open connection settings', () => {
+                    scoutHubModal.style.display = 'none';
+                    showSettingsPage(true, 'connection');
+                }));
+                actions.appendChild(hubButton('Open project repository', () => createTab('https://github.com/nautilus-os/GUST')));
+                scoutHubContent.appendChild(actions);
+            }
+
+            function getCurrentDataSnapshot() {
+                const snapshot = {};
+                for (let i = 0; i < ls.length; i++) {
+                    const key = ls.key(i);
+                    if (!key || key === WORKSPACE_META_KEY) continue;
+                    const value = ls.getItem(key);
+                    if (value !== null) snapshot[key] = value;
+                }
+                return snapshot;
+            }
+
+            function getWorkspaceRegistry() {
+                const raw = ls.getItem(WORKSPACE_META_KEY);
+                if (raw) {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (parsed && Array.isArray(parsed.workspaces)) {
+                            const seen = new Set();
+                            const workspaces = parsed.workspaces.filter(item => {
+                                if (!item || typeof item.id !== 'string' || typeof item.name !== 'string' ||
+                                    !item.data || typeof item.data !== 'object' || Array.isArray(item.data) || seen.has(item.id)) return false;
+                                seen.add(item.id);
+                                item.data = Object.fromEntries(Object.entries(item.data).filter(([key, value]) =>
+                                    key !== WORKSPACE_META_KEY && typeof value === 'string'
+                                ));
+                                return true;
+                            });
+                            if (workspaces.length) {
+                                const activeId = workspaces.some(item => item.id === parsed.activeId) ? parsed.activeId : workspaces[0].id;
+                                return { activeId, workspaces };
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Could not read workspace profiles:', error);
+                    }
+                }
+                const initial = {
+                    activeId: 'default',
+                    workspaces: [{ id: 'default', name: 'Default', data: getCurrentDataSnapshot() }]
+                };
+                try { storeWorkspaceRegistry(initial); }
+                catch (error) { console.error('Could not initialize workspaces:', error); }
+                return initial;
+            }
+
+            function storeWorkspaceRegistry(registry) {
+                const serialized = JSON.stringify(registry);
+                ls.setItem(WORKSPACE_META_KEY, serialized);
+                if (ls.getItem(WORKSPACE_META_KEY) !== serialized) throw new Error('Local storage is unavailable or full.');
+            }
+
+            function persistActiveWorkspace() {
+                try {
+                    const registry = getWorkspaceRegistry();
+                    const active = registry.workspaces.find(item => item.id === registry.activeId);
+                    if (!active) return;
+                    active.data = getCurrentDataSnapshot();
+                    storeWorkspaceRegistry(registry);
+                } catch (error) {
+                    console.error('Could not save workspace state:', error);
+                }
+            }
+
+            window.addEventListener('pagehide', persistActiveWorkspace);
+
+            function renderWorkspacesPanel() {
+                const registry = getWorkspaceRegistry();
+                const intro = hubElement('p', 'Workspaces keep separate local Scout settings, bookmarks, history, and saved sessions on this device. They are not cloud accounts.');
+                scoutHubContent.appendChild(intro);
+                const list = hubElement('div');
+                for (const workspace of registry.workspaces) {
+                    const row = hubElement('div', '', 'scout-hub-row');
+                    const info = hubElement('div');
+                    const name = hubElement('div', workspace.name, 'scout-hub-row-title');
+                    info.appendChild(name);
+                    if (workspace.id === registry.activeId) info.appendChild(hubElement('div', 'Current workspace'));
+                    row.appendChild(info);
+                    const actions = hubElement('div', '', 'scout-hub-actions');
+                    if (workspace.id !== registry.activeId) actions.appendChild(hubButton('Switch', () => switchWorkspace(workspace.id), true));
+                    actions.appendChild(hubButton('Rename', () => renameWorkspace(workspace.id)));
+                    if (workspace.id !== 'default') actions.appendChild(hubButton('Delete', () => deleteWorkspace(workspace.id)));
+                    row.appendChild(actions);
+                    list.appendChild(row);
+                }
+                scoutHubContent.appendChild(list);
+                const actions = hubElement('div', '', 'scout-hub-actions');
+                actions.appendChild(hubButton('Create workspace', createWorkspace, true));
+                scoutHubContent.appendChild(actions);
+                hubStatus(scoutHubContent, 'Switching workspaces saves this one locally, loads the selected profile, and reloads Scout.');
+            }
+
+            function switchWorkspace(id) {
+                const registry = getWorkspaceRegistry();
+                const target = registry.workspaces.find(item => item.id === id);
+                const current = registry.workspaces.find(item => item.id === registry.activeId);
+                if (!target || !current || target.id === current.id) return;
+                if (!confirm(`Switch from "${current.name}" to "${target.name}"? Scout will reload.`)) return;
+                const previousStorage = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith(_LS_PFX)) previousStorage.push([key, localStorage.getItem(key)]);
+                }
+                try {
+                    current.data = getCurrentDataSnapshot();
+                    registry.activeId = target.id;
+                    storeWorkspaceRegistry(registry);
+                    const remove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith(_LS_PFX) && key !== _LS_PFX + WORKSPACE_META_KEY) remove.push(key);
+                    }
+                    remove.forEach(key => localStorage.removeItem(key));
+                    for (const [key, value] of Object.entries(target.data || {})) {
+                        if (key !== WORKSPACE_META_KEY && typeof value === 'string') localStorage.setItem(_LS_PFX + key, value);
+                    }
+                    storeWorkspaceRegistry(registry);
+                    location.reload();
+                } catch (error) {
+                    try {
+                        const currentKeys = [];
+                        for (let i = 0; i < localStorage.length; i++) {
+                            const key = localStorage.key(i);
+                            if (key && key.startsWith(_LS_PFX)) currentKeys.push(key);
+                        }
+                        currentKeys.forEach(key => localStorage.removeItem(key));
+                        previousStorage.forEach(([key, value]) => localStorage.setItem(key, value));
+                    } catch (restoreError) {
+                        console.error('Could not roll back a failed workspace switch:', restoreError);
+                    }
+                    hubStatus(scoutHubContent, `Workspace switch failed: ${error.message}`);
+                }
+            }
+
+            function createWorkspace() {
+                const name = prompt('Name this workspace:');
+                if (!name || !name.trim()) return;
+                const registry = getWorkspaceRegistry();
+                if (registry.workspaces.some(item => item.name.toLowerCase() === name.trim().toLowerCase())) {
+                    hubStatus(scoutHubContent, 'A workspace with that name already exists.');
+                    return;
+                }
+                const current = registry.workspaces.find(item => item.id === registry.activeId);
+                if (current) current.data = getCurrentDataSnapshot();
+                const workspace = { id: `workspace-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: name.trim().slice(0, 40), data: {} };
+                registry.workspaces.push(workspace);
+                try {
+                    storeWorkspaceRegistry(registry);
+                    switchWorkspace(workspace.id);
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Workspace could not be created: ${error.message}`);
+                }
+            }
+
+            function renameWorkspace(id) {
+                const registry = getWorkspaceRegistry();
+                const workspace = registry.workspaces.find(item => item.id === id);
+                if (!workspace) return;
+                const name = prompt('Rename workspace:', workspace.name);
+                if (!name || !name.trim()) return;
+                if (registry.workspaces.some(item => item.id !== id && item.name.toLowerCase() === name.trim().toLowerCase())) {
+                    hubStatus(scoutHubContent, 'A workspace with that name already exists.');
+                    return;
+                }
+                workspace.name = name.trim().slice(0, 40);
+                try {
+                    storeWorkspaceRegistry(registry);
+                    renderWorkspacesPanel();
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Workspace name could not be saved: ${error.message}`);
+                }
+            }
+
+            function deleteWorkspace(id) {
+                const registry = getWorkspaceRegistry();
+                const workspace = registry.workspaces.find(item => item.id === id);
+                if (!workspace || workspace.id === registry.activeId || registry.workspaces.length < 2) return;
+                if (!confirm(`Delete the "${workspace.name}" workspace and its local data?`)) return;
+                registry.workspaces = registry.workspaces.filter(item => item.id !== id);
+                try {
+                    storeWorkspaceRegistry(registry);
+                    renderWorkspacesPanel();
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Workspace could not be deleted: ${error.message}`);
+                }
+            }
+
+            function loadSavedSessions() {
+                const raw = ls.getItem(SAVED_SESSIONS_KEY);
+                if (!raw) return [];
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed.filter(item =>
+                        item && typeof item.id === 'string' && typeof item.name === 'string' && Array.isArray(item.tabs)
+                    ) : [];
+                } catch (error) {
+                    console.error('Could not read saved tab groups:', error);
+                    return [];
+                }
+            }
+
+            function renderSessionsPanel() {
+                const list = loadSavedSessions();
+                scoutHubContent.appendChild(hubElement('p', 'Save the open tabs as a named group and restore them later. Restoring opens up to 12 saved pages in additional tabs.'));
+                const saveActions = hubElement('div', '', 'scout-hub-actions');
+                saveActions.appendChild(hubButton('Save current tabs as a group', saveCurrentSession, true));
+                scoutHubContent.appendChild(saveActions);
+                const container = hubElement('div');
+                if (!list.length) container.appendChild(hubElement('p', 'No saved tab groups yet.'));
+                for (const session of list) {
+                    const row = hubElement('div', '', 'scout-hub-row');
+                    const info = hubElement('div');
+                    info.appendChild(hubElement('div', session.name, 'scout-hub-row-title'));
+                    info.appendChild(hubElement('div', `${session.tabs.length} tabs · ${new Date(session.savedAt || Date.now()).toLocaleDateString()}`));
+                    row.appendChild(info);
+                    const actions = hubElement('div', '', 'scout-hub-actions');
+                    actions.appendChild(hubButton('Restore', () => restoreSession(session), true));
+                    actions.appendChild(hubButton('Delete', () => deleteSession(session.id)));
+                    row.appendChild(actions);
+                    container.appendChild(row);
+                }
+                scoutHubContent.appendChild(container);
+            }
+
+            function saveCurrentSession() {
+                const name = prompt('Name this tab group:');
+                if (!name || !name.trim()) return;
+                const savedTabs = tabs
+                    .filter(tab => tab.url === HOME_INTERNAL || /^https?:\/\//i.test(tab.url || ''))
+                    .slice(0, 30)
+                    .map(tab => ({ title: String(tab.title || 'New Tab').slice(0, 160), url: tab.url }));
+                if (!savedTabs.length) {
+                    hubStatus(scoutHubContent, 'There are no restorable tabs to save.');
+                    return;
+                }
+                const groups = loadSavedSessions();
+                groups.unshift({ id: `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: name.trim().slice(0, 60), savedAt: Date.now(), tabs: savedTabs });
+                const serialized = JSON.stringify(groups.slice(0, 50));
+                ls.setItem(SAVED_SESSIONS_KEY, serialized);
+                if (ls.getItem(SAVED_SESSIONS_KEY) !== serialized) {
+                    hubStatus(scoutHubContent, 'Could not save this tab group. Local storage may be full.');
+                    return;
+                }
+                renderSessionsPanel();
+            }
+
+            function restoreSession(session) {
+                const urls = session.tabs.map(tab => tab && tab.url).filter(url =>
+                    url === HOME_INTERNAL || (typeof url === 'string' && /^https?:\/\//i.test(url))
+                ).slice(0, 12);
+                if (!urls.length) {
+                    hubStatus(scoutHubContent, 'This saved group has no valid pages to restore.');
+                    return;
+                }
+                scoutHubModal.style.display = 'none';
+                urls.forEach(url => createTab(url));
+            }
+
+            function deleteSession(id) {
+                if (!confirm('Delete this saved tab group?')) return;
+                const serialized = JSON.stringify(loadSavedSessions().filter(item => item.id !== id));
+                ls.setItem(SAVED_SESSIONS_KEY, serialized);
+                if (ls.getItem(SAVED_SESSIONS_KEY) !== serialized) {
+                    hubStatus(scoutHubContent, 'Could not delete the saved tab group.');
+                    return;
+                }
+                renderSessionsPanel();
+            }
+
+            function renderTransferPanel() {
+                scoutHubContent.appendChild(hubElement('p', 'Export or import this workspace’s Scout settings, bookmarks, favorites, and saved tab groups as a local JSON file. No account or cloud service is used. Treat the backup as private because it may contain browsing data.'));
+                const actions = hubElement('div', '', 'scout-hub-actions');
+                actions.appendChild(hubButton('Export workspace backup', exportWorkspaceBackup, true));
+                actions.appendChild(hubButton('Import backup file', () => fileInput.click()));
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = 'application/json,.json';
+                fileInput.hidden = true;
+                fileInput.addEventListener('change', () => importWorkspaceBackup(fileInput.files && fileInput.files[0]));
+                actions.appendChild(fileInput);
+                scoutHubContent.appendChild(actions);
+                hubStatus(scoutHubContent, 'Automatic cloud sync is not configured. Move the exported file between devices yourself.');
+            }
+
+            function exportWorkspaceBackup() {
+                try {
+                    const backup = {
+                        schema: BACKUP_SCHEMA,
+                        version: 1,
+                        exportedAt: new Date().toISOString(),
+                        data: getCurrentDataSnapshot()
+                    };
+                    const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+                    const link = document.createElement('a');
+                    link.href = blobUrl;
+                    link.download = `scout-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                    hubStatus(scoutHubContent, 'Backup exported. Keep the file somewhere private.');
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Backup export failed: ${error.message}`);
+                }
+            }
+
+            async function importWorkspaceBackup(file) {
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    hubStatus(scoutHubContent, 'Backup is too large (maximum 5 MB).');
+                    return;
+                }
+                try {
+                    const backup = JSON.parse(await file.text());
+                    if (!backup || backup.schema !== BACKUP_SCHEMA || backup.version !== 1 ||
+                        !backup.data || typeof backup.data !== 'object' || Array.isArray(backup.data)) {
+                        throw new Error('This is not a supported Scout backup.');
+                    }
+                    const entries = Object.entries(backup.data);
+                    if (entries.length > 1000 || entries.some(([key, value]) =>
+                        typeof key !== 'string' || key === WORKSPACE_META_KEY || typeof value !== 'string'
+                    ) || entries.reduce((sum, [key, value]) => sum + key.length + value.length, 0) > 5 * 1024 * 1024) {
+                        throw new Error('Backup contains invalid or excessive data.');
+                    }
+                    if (!confirm('Replace this workspace’s local Scout data with the selected backup? Scout will reload.')) return;
+                    const remove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith(_LS_PFX) && key !== _LS_PFX + WORKSPACE_META_KEY) remove.push(key);
+                    }
+                    remove.forEach(key => localStorage.removeItem(key));
+                    for (const [key, value] of entries) localStorage.setItem(_LS_PFX + key, value);
+                    location.reload();
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Backup import failed: ${error.message}`);
+                }
+            }
+
+            function renderPrivacyPanel() {
+                scoutHubContent.appendChild(hubElement('p', 'Scout stores bookmarks, settings, and recent browsing data in this browser profile. These controls affect only this device and workspace.'));
+                const actions = hubElement('div', '', 'scout-hub-actions');
+                actions.appendChild(hubButton('Open privacy settings', () => {
+                    scoutHubModal.style.display = 'none';
+                    showSettingsPage(true, 'privacy');
+                }, true));
+                actions.appendChild(hubButton('Clear recent history', () => {
+                    recentSites = [];
+                    ls.removeItem('gust:recent');
+                    if (historyPopup.classList.contains('open')) hideHistoryPopup();
+                    hubStatus(scoutHubContent, 'Recent history cleared.');
+                }));
+                actions.appendChild(hubButton('Clear cache', async () => {
+                    try {
+                        const cleared = await clearCache();
+                        hubStatus(scoutHubContent, cleared
+                            ? 'Cached page data cleared.'
+                            : 'Some cached data could not be cleared. Check Browser Logs for details.');
+                    } catch (error) {
+                        hubStatus(scoutHubContent, `Cache clear failed: ${error.message}`);
+                    }
+                }));
+                actions.appendChild(hubButton('Reset this workspace', resetCurrentWorkspace));
+                scoutHubContent.appendChild(actions);
+            }
+
+            function resetCurrentWorkspace() {
+                if (!confirm('Reset this workspace? This clears its settings, bookmarks, tabs, history, and saved tab groups. Other workspaces stay unchanged.')) return;
+                try {
+                    const registry = getWorkspaceRegistry();
+                    const active = registry.workspaces.find(item => item.id === registry.activeId);
+                    if (active) active.data = {};
+                    storeWorkspaceRegistry(registry);
+                    const remove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith(_LS_PFX) && key !== _LS_PFX + WORKSPACE_META_KEY) remove.push(key);
+                    }
+                    remove.forEach(key => localStorage.removeItem(key));
+                    location.reload();
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Workspace reset failed: ${error.message}`);
+                }
+            }
+
+            document.querySelectorAll('.scout-hub-card').forEach(button => {
+                button.addEventListener('click', () => {
+                    const action = button.dataset.hubAction;
+                    if (action === 'translate') {
+                        showSettingsPage(true, 'language');
+                        return;
+                    }
+                    showHub(action);
+                });
+            });
+            document.getElementById('scoutHubClose').addEventListener('click', () => {
+                scoutHubModal.style.display = 'none';
+            });
+            scoutHubModal.addEventListener('click', event => {
+                if (event.target === scoutHubModal) scoutHubModal.style.display = 'none';
+            });
+
+            const readerModal = document.getElementById('readerModal');
+            const readerText = document.getElementById('readerText');
+            const readerTitle = document.getElementById('readerTitle');
+            let readerFontSize = 17;
+            document.getElementById('readerModeBtn').addEventListener('click', () => {
+                try {
+                    const doc = currentDoc || (frame.contentDocument || frame.contentWindow.document);
+                    if (!doc || !doc.body || pageUrl === HOME_INTERNAL || isSettingsPage(pageUrl)) {
+                        setStatus('idle', 'Open a web page first to use reader view.');
+                        return;
+                    }
+                    const article = doc.querySelector('article, main, [role="main"]') || doc.body;
+                    const text = (article.innerText || article.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+                    if (!text) throw new Error('No readable text was found on this page.');
+                    readerTitle.textContent = doc.title || 'Reader view';
+                    readerText.textContent = text;
+                    readerFontSize = Math.min(24, Math.max(14, Number(ls.getItem('gust:reader-font-size:v1')) || 17));
+                    readerText.style.fontSize = `${readerFontSize}px`;
+                    readerModal.style.display = 'flex';
+                } catch (error) {
+                    alert(`Reader view could not open this page: ${error.message}`);
+                }
+            });
+            document.getElementById('readerSmaller').addEventListener('click', () => {
+                readerFontSize = Math.max(14, readerFontSize - 1);
+                readerText.style.fontSize = `${readerFontSize}px`;
+                ls.setItem('gust:reader-font-size:v1', String(readerFontSize));
+            });
+            document.getElementById('readerLarger').addEventListener('click', () => {
+                readerFontSize = Math.min(24, readerFontSize + 1);
+                readerText.style.fontSize = `${readerFontSize}px`;
+                ls.setItem('gust:reader-font-size:v1', String(readerFontSize));
+            });
+            const closeReader = () => { readerModal.style.display = 'none'; };
+            document.getElementById('readerClose').addEventListener('click', closeReader);
+            readerModal.addEventListener('click', event => { if (event.target === readerModal) closeReader(); });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    if (readerModal.style.display === 'flex') closeReader();
+                    if (scoutHubModal.style.display === 'flex') scoutHubModal.style.display = 'none';
+                }
+            });
 
             init();
         })();
