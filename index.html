@@ -7977,13 +7977,13 @@
                                             <div style="flex:1;">
                                                 <div class="settings-switch-label">Active threads</div>
                                                 <div class="settings-hint">Max simultaneous requests during page load
-                                                    (default: 24). Higher values use more CPU and may be throttled.</div>
+                                                    (default: 10). Higher values use more CPU and may be throttled.</div>
                                             </div>
                                             <div style="display:flex;align-items:center;gap:6px;">
                                                 <button class="settings-btn-icon" id="settingsActiveMinus"
                                                     style="width:28px;height:28px;font-size:14px;">−</button>
                                                 <span id="settingsActiveVal"
-                                                    style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--tx);min-width:20px;text-align:center;">24</span>
+                                                    style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--tx);min-width:20px;text-align:center;">10</span>
                                                 <button class="settings-btn-icon" id="settingsActivePlus"
                                                     style="width:28px;height:28px;font-size:14px;">+</button>
                                             </div>
@@ -14419,12 +14419,10 @@ window._libcurlReady = true;
                     const key = 'gust:activethreads:v1';
                     const stored = ls.getItem(key);
                     const value = parseInt(stored, 10);
-                    if (!stored || value === 10) {
-                        ls.setItem(key, '24');
-                        return 24;
-                    }
-                    return Number.isFinite(value) ? Math.max(1, Math.min(24, value)) : 24;
-                } catch { return 24; }
+                    const active = Number.isFinite(value) ? Math.max(1, Math.min(10, value)) : 10;
+                    if (stored !== String(active)) ls.setItem(key, String(active));
+                    return active;
+                } catch { return 10; }
             })();
             let _activePageLoads = 0;
             let syncState = 1;
@@ -22552,7 +22550,6 @@ _VIEWER_DL_JS +
                 const cacheCount = memCache?.size ?? 0;
                 const inFlight = fetching ?? 0;
                 const queued = fetchQueue?.length ?? 0;
-                const requestLimit = _activePageLoads ? MAX_CONCURRENT_ACTIVE : MAX_CONCURRENT;
 
                 const memBar = memPct != null
                     ? `<div class="metric-progress" role="progressbar" aria-label="JavaScript heap usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, memPct)}"><span style="width:${Math.min(100, memPct)}%;"></span></div>`
@@ -22562,7 +22559,7 @@ _VIEWER_DL_JS +
                         <div class="metrics-overview">
                             ${metricCard('clock', 'Uptime', fmtUptime(uptime), 'since Scout started', 'uptime')}
                             ${metricCard('layer-group', 'Open Tabs', tabCount, tabCount === 1 ? 'open browser tab' : 'open browser tabs', 'tabs')}
-                            ${metricCard('bolt', 'Active Requests', `${inFlight}/${requestLimit}`, queued ? `${queued} waiting in queue` : 'no requests queued', 'requests')}
+                            ${metricCard('bolt', 'Active Requests', `${inFlight}/${MAX_CONCURRENT_ACTIVE}`, queued ? `${queued} waiting in queue` : 'no requests queued', 'requests')}
                             ${metricCard('database', 'Page Cache', cacheCount + '', 'in-memory entries', 'cache')}
                             <article class="metric-card heap">
                                 <div class="metric-card-icon"><i class="fas fa-microchip"></i></div>
@@ -23471,7 +23468,7 @@ _VIEWER_DL_JS +
                 const threadsSave = $("settingsThreadsSave");
                 const threadsReset = $("settingsThreadsReset");
                 const threadsStatus = $("settingsThreadsStatus");
-                const THREAD_MIN = 1, IDLE_THREAD_MAX = 18, ACTIVE_THREAD_MAX = 24;
+                const THREAD_MIN = 1, IDLE_THREAD_MAX = 18, ACTIVE_THREAD_MAX = 10;
 
                 function updateThreadDisplays() {
                     if (idleValEl) idleValEl.textContent = _idleVal;
@@ -23505,11 +23502,11 @@ _VIEWER_DL_JS +
                 }
                 if (threadsReset) {
                     threadsReset.onclick = () => {
-                        _idleVal = 3; _activeVal = 24;
-                        MAX_CONCURRENT = 3; MAX_CONCURRENT_ACTIVE = 24;
+                        _idleVal = 3; _activeVal = 10;
+                        MAX_CONCURRENT = 3; MAX_CONCURRENT_ACTIVE = 10;
                         updateThreadDisplays();
                         try { ls.removeItem('gust:idlethreads:v1'); ls.removeItem('gust:activethreads:v1'); } catch { }
-                        showStatusMsg(threadsStatus, 'Reset to defaults (idle: 3, active: 24)', 'ok');
+                        showStatusMsg(threadsStatus, 'Reset to defaults (idle: 3, active: 10)', 'ok');
                     };
                 }
                 if (blockSwitch) {
@@ -27867,7 +27864,7 @@ _VIEWER_DL_JS +
                     gxControl.querySelector('#gxcX').addEventListener('click', closeGXPageTab);
                     gxControl.querySelectorAll('#gxcNet .gxc-preset').forEach(b => b.addEventListener('click', () => {
                         const n = parseInt(b.dataset.n, 10);
-                        MAX_CONCURRENT = n; MAX_CONCURRENT_ACTIVE = Math.min(18, n + 3);
+                        MAX_CONCURRENT = n; MAX_CONCURRENT_ACTIVE = Math.min(10, n + 3);
                         try { ls.setItem('gust:idlethreads:v1', n); ls.setItem('gust:activethreads:v1', MAX_CONCURRENT_ACTIVE); } catch (_) {}
                         gxControl.querySelectorAll('#gxcNet .gxc-preset').forEach(x => x.classList.toggle('sel', x === b));
                         gxPlay(n <= 3 ? 'LIMITER_ON' : 'LIMITER_OFF');
