@@ -13637,7 +13637,7 @@ window._libcurlReady = true;
             const SEARCH_ENGINES = {
                 brave: "https://search.brave.com/search?q=",
                 ddg: "https://duckduckgo.com/?q=",
-                google: "https://www.google.com/search?client=firefox-b-d&q=",
+                google: "https://www.google.com/search?q=",
                 bing: "https://www.bing.com/search?q="
             };
             const WALLPAPER_QUERIES = ["aurora", "nebula", "ocean", "fog", "desert", "mountain", "city night", "forest", "abstract"];
@@ -26628,7 +26628,7 @@ _VIEWER_DL_JS +
                     q = (q || '').trim();
                     if (!q) return;
                     if (looksLikeUrl(q)) go(q);
-                    else go('https://www.google.com/search?client=firefox-b-d&q=' + encodeURIComponent(q));
+                    else go('https://www.google.com/search?q=' + encodeURIComponent(q));
                 }
                 function chromeSuggestions(q) {
                     const out = [];
@@ -28664,7 +28664,7 @@ _VIEWER_DL_JS +
                         if (e.key !== 'Enter') return;
                         const q = finp.value.trim();
                         if (!q) return;
-                        if (looksLikeUrl(q)) go(q); else go('https://www.google.com/search?client=firefox-b-d&q=' + encodeURIComponent(q));
+                        if (looksLikeUrl(q)) go(q); else go('https://www.google.com/search?q=' + encodeURIComponent(q));
                     });
                     ntpEl.querySelectorAll('.fntp-sc[data-furl]').forEach(s => {
                         s.addEventListener('click', e => {
