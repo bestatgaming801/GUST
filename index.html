@@ -7221,10 +7221,98 @@
             background: #070b14;
         }
 
+        .release-countdown {
+            position: fixed;
+            inset: 0;
+            z-index: 999998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 28px;
+            color: #eef7ff;
+            background:
+                radial-gradient(ellipse at 50% 15%, rgba(32, 113, 154, .22), transparent 58%),
+                repeating-linear-gradient(90deg, transparent 0, transparent 79px, rgba(160, 215, 255, .035) 80px),
+                #070b12;
+            font-family: var(--ui, 'Space Grotesk', sans-serif);
+            opacity: 1;
+            transition: opacity .8s ease;
+        }
+
+        .release-countdown.is-exiting { opacity: 0; pointer-events: none; }
+        .release-countdown-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .release-content { position: relative; z-index: 1; width: min(760px, 100%); text-align: center; }
+        .release-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 12px;
+            border: 1px solid rgba(132, 212, 255, .3);
+            border-radius: 999px;
+            background: rgba(15, 28, 40, .72);
+            color: #9de5ff;
+            font-family: var(--mono, monospace);
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .release-kicker-dot { width: 7px; height: 7px; border-radius: 50%; background: #9de5ff; box-shadow: 0 0 12px #9de5ff; }
+        .release-eyebrow { margin: 34px 0 10px; color: #91a4b8; font-size: 12px; font-weight: 600; }
+        .release-title { margin: 0; color: #f4f9ff; font-size: 44px; font-weight: 700; line-height: 1.1; }
+        .release-subtitle { margin: 12px 0 34px; color: #9eafbf; font-size: 15px; line-height: 1.5; }
+        .release-timer { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .release-unit {
+            min-width: 0;
+            padding: 21px 10px 18px;
+            border: 1px solid rgba(129, 177, 210, .22);
+            border-radius: 8px;
+            background: rgba(15, 26, 37, .82);
+            box-shadow: inset 0 1px rgba(255,255,255,.035);
+        }
+        .release-value { display: block; color: #f0f8ff; font-family: var(--mono, monospace); font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+        .release-unit-label { display: block; margin-top: 10px; color: #8498aa; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .release-date { margin: 25px 0 0; color: #b6c4d2; font-size: 13px; }
+        .release-date strong { color: #d7efff; font-weight: 600; }
+        .release-live { display: none; margin-top: 22px; color: #b6c4d2; font-size: 14px; }
+        .release-countdown.is-live .release-eyebrow { color: #9de5ff; }
+        .release-countdown.is-live .release-title { text-shadow: 0 0 28px rgba(99, 211, 255, .3); }
+        .release-countdown.is-live .release-timer,
+        .release-countdown.is-live .release-date { display: none; }
+        .release-countdown.is-live .release-live { display: block; }
+
+        @media (max-width: 600px) {
+            .release-countdown { padding: 20px; }
+            .release-title { font-size: 32px; }
+            .release-subtitle { margin-bottom: 26px; font-size: 14px; }
+            .release-timer { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+            .release-unit { padding: 17px 8px 14px; }
+            .release-value { font-size: 32px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .release-countdown { transition: none; }
+        }
+
     </style>
 </head>
 
 <body>
+    <section class="release-countdown" id="releaseCountdown" role="dialog" aria-modal="true" aria-labelledby="releaseTitle">
+        <canvas class="release-countdown-canvas" id="releaseFireworks" aria-hidden="true"></canvas>
+        <div class="release-content">
+            <div class="release-kicker"><span class="release-kicker-dot"></span>SCOUT / PUBLIC RELEASE</div>
+            <p class="release-eyebrow" id="releaseEyebrow">THE WAIT IS ALMOST OVER</p>
+            <h1 class="release-title" id="releaseTitle">Scout launches in</h1>
+            <p class="release-subtitle">A new place to explore is almost ready.</p>
+            <div class="release-timer" id="releaseTimer" role="timer" aria-live="off">
+                <div class="release-unit"><span class="release-value" id="releaseDays">00</span><span class="release-unit-label">Days</span></div>
+                <div class="release-unit"><span class="release-value" id="releaseHours">00</span><span class="release-unit-label">Hours</span></div>
+                <div class="release-unit"><span class="release-value" id="releaseMinutes">00</span><span class="release-unit-label">Minutes</span></div>
+                <div class="release-unit"><span class="release-value" id="releaseSeconds">00</span><span class="release-unit-label">Seconds</span></div>
+            </div>
+            <p class="release-date">Tuesday, November 10 at <strong>1:00 PM EST</strong></p>
+            <p class="release-live" id="releaseLive" aria-live="polite">Opening Scout…</p>
+        </div>
+    </section>
     <noscript>
         <style>
             .gust-noscript {
@@ -12623,70 +12711,151 @@ window._libcurlReady = true;
                 return ranked[0];
             }
             const $ = s => document.getElementById(s);
-            const frame = $('frame');
+            let frame = $('frame');
+            const frameHost = frame.parentElement;
+            const frameTemplate = frame.cloneNode(false);
+            const tabFrames = new Map();
+            const MAX_LIVE_TAB_FRAMES = 2;
+            let attachFrameAuxListeners = () => {};
+            tabFrames.set(1, frame);
+            function getTabFrame(tabId) {
+                let tabFrame = tabFrames.get(tabId);
+                if (!tabFrame) {
+                    tabFrame = frameTemplate.cloneNode(false);
+                    tabFrame.removeAttribute('id');
+                    tabFrame.style.cssText = '';
+                    tabFrame.style.display = 'none';
+                    frameHost.appendChild(tabFrame);
+                    attachNativeEscapeInterceptor(tabFrame);
+                    attachFrameAuxListeners(tabFrame);
+                    tabFrames.set(tabId, tabFrame);
+                    _intentionalFrameLoads.add(tabFrame);
+                    tabFrame.src = 'about:blank';
+                }
+                return tabFrame;
+            }
+            function activateTabFrame(tabId) {
+                if (frame) {
+                    frame.style.display = 'none';
+                    frame.removeAttribute('id');
+                }
+                frame = getTabFrame(tabId);
+                frame.id = 'frame';
+                frame.style.display = 'block';
+                enforceLiveTabFrameLimit();
+            }
+            function enforceLiveTabFrameLimit() {
+                const inactiveFrames = [...tabFrames.entries()]
+                    .filter(([tabId]) => tabId !== activeTabId)
+                    .sort(([a], [b]) => {
+                        const aTab = tabs.find(t => t.id === a);
+                        const bTab = tabs.find(t => t.id === b);
+                        return (aTab?._lastActive || 0) - (bTab?._lastActive || 0);
+                    });
+                while (tabFrames.size > MAX_LIVE_TAB_FRAMES && inactiveFrames.length) {
+                    const [tabId, tabFrame] = inactiveFrames.shift();
+                    const tab = tabs.find(t => t.id === tabId);
+                    if (tab && tabFrame.src.startsWith('blob:')) tab.blobSrc = tabFrame.src;
+                    tabFrame.onload = null;
+                    tabFrame.src = 'about:blank';
+                    tabFrame.remove();
+                    tabFrames.delete(tabId);
+                }
+            }
+            function revokeBlobWhenUnused(blobUrl, ownerTabId) {
+                if (!blobUrl || !blobUrl.startsWith('blob:')) return;
+                if (tabs.some(t => t.id !== ownerTabId && t.blobSrc === blobUrl)) return;
+                setTimeout(() => {
+                    if (!tabs.some(t => t.id !== ownerTabId && t.blobSrc === blobUrl)) {
+                        try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+                    }
+                }, 2000);
+            }
             // Persistent Discord Anywhere iframe; see renderDiscordPage.
             let dframe = null;
             const hideDiscordFrame = () => { if (dframe) dframe.style.display = 'none'; };
+            function isFrameDescendant(source, rootFrame) {
+                if (!source || !rootFrame) return false;
+                let current = source;
+                for (let depth = 0; depth < 32; depth++) {
+                    if (current === rootFrame.contentWindow) return true;
+                    try {
+                        const parent = current.parent;
+                        if (!parent || parent === current) return false;
+                        current = parent;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+                return false;
+            }
+            function isActivePageMessageSource(source) {
+                if (source === window || isFrameDescendant(source, frame)) return true;
+                return getActiveTab()?.url === DISCORD_INTERNAL && isFrameDescendant(source, dframe);
+            }
             let _pendingNavHint = null;
-            // Set to true right before we assign a blob URL to frame.src.
-            // Cleared at the start of the load event so we can distinguish
+            // Mark before intentional iframe navigations so the load handler can distinguish
             // our own intentional blob loads from native iframe escapes.
             // (Chrome treats blob URLs from file:// pages as cross-origin,
             //  so .location.href throws for both cases in the catch below.)
-            let _blobLoadPending = false;
+            const _intentionalFrameLoads = new WeakSet();
 
             // ── Native navigation escape interceptor ──────────────────────
             // If a proxied page causes the iframe to navigate natively
             // (e.g. Brave search redirect links that bypass the postMessage
             // click intercept), catch the load event, read the landed URL,
             // and re-route it through the proxy immediately.
-            frame.addEventListener('load', () => {
-                const _wasBlobLoad = _blobLoadPending;
-                _blobLoadPending = false;
-                try {
-                    const landed = frame.contentWindow?.location?.href;
-                    if (!landed || landed === 'about:blank' || landed === 'about:srcdoc' || landed.startsWith('blob:')) return;
-                    // iframe landed on a real URL natively — reroute via proxy
-                    _pendingNavHint = null;
-                    frame.src = 'about:blank';
-                    go(landed, true);
-                } catch (crossOriginErr) {
-                    // .location.href throws for cross-origin pages AND for blob URLs
-                    // loaded from a file:// context (Chrome treats them as null-origin).
-                    // Use _wasBlobLoad to tell them apart: if we just intentionally
-                    // loaded a blob, this is not a native escape — bail out.
-                    if (_wasBlobLoad) return;
-                    // Real native escape to a cross-origin URL — recover.
+            function attachNativeEscapeInterceptor(targetFrame) {
+                targetFrame.addEventListener('load', () => {
+                    const _wasBlobLoad = _intentionalFrameLoads.has(targetFrame);
+                    _intentionalFrameLoads.delete(targetFrame);
+                    if (targetFrame !== frame) return;
                     try {
-                        const hint = _pendingNavHint;
+                        const landed = targetFrame.contentWindow?.location?.href;
+                        if (!landed || landed === 'about:blank' || landed === 'about:srcdoc' || landed.startsWith('blob:')) return;
+                        // iframe landed on a real URL natively — reroute via proxy
                         _pendingNavHint = null;
-                        const escapedSrc = frame.src;
-                        const recoveryUrl = (hint && !hint.startsWith('blob:') && hint !== 'about:blank')
-                            ? hint
-                            : (escapedSrc && !escapedSrc.startsWith('blob:') && escapedSrc !== 'about:blank')
-                                ? escapedSrc
-                                : null;
-                        if (recoveryUrl) {
-                            frame.src = 'about:blank';
-                            go(recoveryUrl, true);
-                        } else {
-                            // No real escape — the page triggered a NATIVE reload() of the
-                            // blob doc (e.g. Next.js hydration / chunk-error recovery).
-                            // Reload the current proxied URL instead of blanking.
-                            // Guard against self-looping: only reload if a page actually
-                            // loaded successfully before (_lastPageLoadTime is set on the
-                            // 'ready' message), and self-throttle by stamping the time so a
-                            // reload that itself fails can't re-fire for 15s. Never reload
-                            // when nothing ever loaded (_lastPageLoadTime === 0) — that path
-                            // is the dead-server / in-flight case and would loop forever.
-                            if (pageUrl && _lastPageLoadTime && (Date.now() - _lastPageLoadTime) > 15000) {
-                                _lastPageLoadTime = Date.now();
-                                go(pageUrl, false);
+                        targetFrame.src = 'about:blank';
+                        go(landed, true);
+                    } catch (crossOriginErr) {
+                        // .location.href throws for cross-origin pages AND for blob URLs
+                        // loaded from a file:// context (Chrome treats them as null-origin).
+                        // Use _wasBlobLoad to tell them apart: if we just intentionally
+                        // loaded a blob, this is not a native escape — bail out.
+                        if (_wasBlobLoad) return;
+                        // Real native escape to a cross-origin URL — recover.
+                        try {
+                            const hint = _pendingNavHint;
+                            _pendingNavHint = null;
+                            const escapedSrc = targetFrame.src;
+                            const recoveryUrl = (hint && !hint.startsWith('blob:') && hint !== 'about:blank')
+                                ? hint
+                                : (escapedSrc && !escapedSrc.startsWith('blob:') && escapedSrc !== 'about:blank')
+                                    ? escapedSrc
+                                    : null;
+                            if (recoveryUrl) {
+                                targetFrame.src = 'about:blank';
+                                go(recoveryUrl, true);
+                            } else {
+                                // No real escape — the page triggered a NATIVE reload() of the
+                                // blob doc (e.g. Next.js hydration / chunk-error recovery).
+                                // Reload the current proxied URL instead of blanking.
+                                // Guard against self-looping: only reload if a page actually
+                                // loaded successfully before (_lastPageLoadTime is set on the
+                                // 'ready' message), and self-throttle by stamping the time so a
+                                // reload that itself fails can't re-fire for 15s. Never reload
+                                // when nothing ever loaded (_lastPageLoadTime === 0) — that path
+                                // is the dead-server / in-flight case and would loop forever.
+                                if (pageUrl && _lastPageLoadTime && (Date.now() - _lastPageLoadTime) > 15000) {
+                                    _lastPageLoadTime = Date.now();
+                                    go(pageUrl, false);
+                                }
                             }
-                        }
-                    } catch (_) {}
-                }
-            }, true);
+                        } catch (_) {}
+                    }
+                }, true);
+            }
+            attachNativeEscapeInterceptor(frame);
             // ─────────────────────────────────────────────────────────────
 
             const urlInput = $("url");
@@ -13468,7 +13637,7 @@ window._libcurlReady = true;
             const SEARCH_ENGINES = {
                 brave: "https://search.brave.com/search?q=",
                 ddg: "https://duckduckgo.com/?q=",
-                google: "https://www.google.com/search?q=",
+                google: "https://www.google.com/search?client=firefox-b-d&q=",
                 bing: "https://www.bing.com/search?q="
             };
             const WALLPAPER_QUERIES = ["aurora", "nebula", "ocean", "fog", "desert", "mountain", "city night", "forest", "abstract"];
@@ -13512,6 +13681,8 @@ window._libcurlReady = true;
                         if (data.tabs && data.tabs.length > 0) {
                             tabs = data.tabs;
                             activeTabId = data.activeTabId || tabs[0].id;
+                            tabFrames.clear();
+                            tabFrames.set(activeTabId, frame);
                             nextTabId = data.nextTabId || (Math.max(...tabs.map(t => t.id)) + 1);
                             return true;
                         }
@@ -13538,14 +13709,8 @@ window._libcurlReady = true;
                 return tabs.find(t => t.id === activeTabId);
             }
 
-            // ── Bounded tab memory ──────────────────────────────────────────────
-            // Every backgrounded tab retains its rendered page as a blob (source
-            // bytes) so switching back is instant. Unbounded, that's the OOM: N open
-            // heavy tabs = N full pages resident. Cap how many stay "warm"; the
-            // least-recently-active beyond the cap have their blob revoked and
-            // re-fetch on next switch (exactly what a real browser does under
-            // memory pressure). ponytail: fixed cap; make it adaptive to
-            // performance.memory pressure only if the fixed number proves wrong.
+            // Keep the active tab and one recently used iframe alive for instant
+            // switching. Older tabs retain a bounded blob snapshot for restoration.
             const MAX_WARM_TABS = 8;
             let _tabActivitySeq = 0;
             function freeTabBlob(tab) {
@@ -13558,7 +13723,7 @@ window._libcurlReady = true;
                 tab.memBytes = 0;
             }
             function enforceBlobCap() {
-                const warm = tabs.filter(t => t.id !== activeTabId && t.blobSrc);
+                const warm = tabs.filter(t => t.id !== activeTabId && !tabFrames.has(t.id) && t.blobSrc);
                 if (warm.length <= MAX_WARM_TABS) return;
                 warm.sort((a, b) => (a._lastActive || 0) - (b._lastActive || 0));
                 warm.slice(0, warm.length - MAX_WARM_TABS).forEach(freeTabBlob);
@@ -13650,15 +13815,12 @@ window._libcurlReady = true;
                 updateStats();
 
                 const closingTab = tabs[index];
+                const closingFrame = tabFrames.get(tabId);
 
-                // Always silence & revoke the closing tab.
-                // If it's the active tab, we can directly mute the frame.
-                // If it's a background tab, we can't reach its audio (single iframe arch),
-                // but we still revoke its blob URL so the browser can GC the page.
-                if (activeTabId === tabId) {
-                    // Silence current frame media immediately
+                const frameToClose = closingFrame || (activeTabId === tabId ? frame : null);
+                if (frameToClose) {
                     try {
-                        const doc = frame.contentDocument || frame.contentWindow?.document;
+                        const doc = frameToClose.contentDocument || frameToClose.contentWindow?.document;
                         if (doc) {
                             doc.querySelectorAll('video, audio').forEach(el => {
                                 el.pause();
@@ -13667,17 +13829,19 @@ window._libcurlReady = true;
                             });
                         }
                     } catch (e) {}
-                    try {
-                        const blobSrc = frame.src;
-                        frame.src = 'about:blank';
-                        if (blobSrc && blobSrc.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(blobSrc), 300);
-                    } catch (e) {}
+                    frameToClose.onload = null;
+                    _intentionalFrameLoads.add(frameToClose);
+                    frameToClose.src = 'about:blank';
+                }
+
+                if (closingFrame) {
+                    tabFrames.delete(tabId);
+                    closingFrame.src = 'about:blank';
+                    closingFrame.remove();
                 }
 
                 if (closingTab) {
-                    if (closingTab.blobSrc && closingTab.blobSrc !== frame.src) {
-                        setTimeout(() => URL.revokeObjectURL(closingTab.blobSrc), 300);
-                    }
+                    revokeBlobWhenUnused(closingTab.blobSrc, tabId);
                     closingTab.cachedContent = null;
                     closingTab.cachedDoc = null;
                     closingTab.cachedUrl = null;
@@ -13799,8 +13963,7 @@ window._libcurlReady = true;
                         } catch (e) {}
                         // Save scroll position and blob URL
                         try { currentTab.scrollY = frame.contentWindow?.scrollY || 0; } catch(e) {}
-                        // The Discord tab renders in its own frame, so #frame still holds
-                        // some other tab's blob — don't stamp it onto this tab.
+                        // Discord renders in its dedicated frame, not this proxy iframe.
                         const src = currentTab.url === DISCORD_INTERNAL ? '' : frame.src;
                         if (src && src.startsWith('blob:')) currentTab.blobSrc = src;
                     }
@@ -13808,6 +13971,7 @@ window._libcurlReady = true;
 
                 activeTabId = tabId;
                 tab._lastActive = ++_tabActivitySeq;
+                activateTabFrame(tabId);
                 enforceBlobCap();
                 try { if (typeof GustExt !== 'undefined') GustExt.tabEvent('activated', tabId); } catch (e) {}
                 hideDiscordFrame();
@@ -13846,30 +14010,36 @@ window._libcurlReady = true;
                     showSkinPage(tab.url, false);
                 } else if (tab.url === DISCORD_INTERNAL) {
                     renderDiscordPage(false);
+                } else if (frame.hasAttribute('srcdoc') && frame.srcdoc) {
+                    newtab.classList.remove("active");
+                    hideSettingsPage();
+                    frame.style.display = "block";
+                    isErrorPage = !!tab.hasError;
+                    updateSecurityChip(tab.url, tab.hasError ? 'error' : undefined);
+                    updateBookmarkButton();
                 } else if (tab.blobSrc) {
                     newtab.classList.remove("active");
                     hideSettingsPage();
                     frame.style.display = "block";
                     if (frame.src === tab.blobSrc && !frame.getAttribute('srcdoc')) {
-                        // The frame still holds this tab's LIVE document — we only hid it
-                        // (returning from a newtab/settings/internal tab). Re-assigning the
-                        // same blob URL force-reboots the page, and boq/wiz sites (chrome
-                        // web store) stick on their blue splash when rebooted. Just show it.
+                        // This tab's iframe still has its live document. Reassigning the
+                        // blob URL would restart the page and lose its current state.
                         applyMuteToFrame(!!tab.muted);
                     } else {
                         const restoreTab = tab;
-                        frame.onload = () => {
+                        const restoreFrame = frame;
+                        restoreFrame.onload = () => {
                             applyMuteToFrame(!!restoreTab.muted);
                             if (restoreTab.scrollY) {
-                                try { frame.contentWindow?.scrollTo(0, restoreTab.scrollY); } catch(e) {}
+                                try { restoreFrame.contentWindow?.scrollTo(0, restoreTab.scrollY); } catch(e) {}
                             }
-                            frame.onload = null;
+                            restoreFrame.onload = null;
                         };
-                        _blobLoadPending = true;
+                        _intentionalFrameLoads.add(restoreFrame);
                         // srcdoc (Discord page, error pages) overrides src — clear it or the
                         // old document keeps rendering on top of every restored blob tab
-                        frame.removeAttribute('srcdoc');
-                        frame.src = tab.blobSrc;
+                        restoreFrame.removeAttribute('srcdoc');
+                        restoreFrame.src = tab.blobSrc;
                     }
                     isErrorPage = !!tab.hasError;
                     updateSecurityChip(tab.url, tab.hasError ? 'error' : undefined);
@@ -15706,6 +15876,7 @@ window._libcurlReady = true;
             }
 
             window.addEventListener('message', (e) => {
+                if (e.source && !isActivePageMessageSource(e.source)) return;
                 if (e.data?.type === 'gust:stylesResult') {
                     if (currentDetailTab !== 'styles') return;
                     const content = $('elemDetailContent');
@@ -16216,14 +16387,6 @@ window._libcurlReady = true;
                 }
                 return url;
             }
-            function _isDiscordNav(p) {
-                const h = (p.hostname || '').replace(/^www\./, '').toLowerCase();
-                if (/^(discord|discordapp)\.com$/.test(h)) return true;
-                if (/(^|\.)(google|bing|duckduckgo|brave|ecosia|startpage|yahoo)\.[a-z.]+$/.test(h)) {
-                    if (((p.searchParams.get('q') || '').trim().toLowerCase()) === 'discord') return true;
-                }
-                return false;
-            }
             function normUrl(u) {
                 u = (u || "").trim();
                 if (!u) return "";
@@ -16236,16 +16399,13 @@ window._libcurlReady = true;
                 if (/^gust:\/\/extensions(\/.*)?$/i.test(u) || /^about:extensions$/i.test(u)) return u.toLowerCase().startsWith('gust://extensions/') ? u : EXTSTORE_INTERNAL;
                 // Unknown gust:// URLs pass through — go() will show an error page
                 if (u.startsWith("gust://")) return u;
-                if (/^discord$/i.test(u)) return DISCORD_INTERNAL;
                 try {
                     const _p = canonicalizeHost(new URL(u));
-                    if (_isDiscordNav(_p)) return DISCORD_INTERNAL;
                     return _p.href;
                 } catch { }
                 if (u.includes(".") && !u.includes(" ")) {
                     try {
                         const _p = canonicalizeHost(new URL("https://" + u));
-                        if (_isDiscordNav(_p)) return DISCORD_INTERNAL;
                         return _p.href;
                     } catch { }
                 }
@@ -16304,6 +16464,16 @@ window._libcurlReady = true;
                     if (cr) { const m = /\/(\d+)\s*$/.exec(cr); if (m) { const n = parseInt(m[1], 10); if (Number.isFinite(n)) return n; } }
                 } catch (e) {}
                 return null;
+            }
+
+            function isConnectionFailure(error) {
+                const message = String(error?.message || error || '').toLowerCase();
+                return Number(error?.code) === 7 ||
+                    /\b(?:error(?:\s+code)?|code)\s*[:#]?\s*7\b/.test(message) ||
+                    message.includes('curle_couldnt_connect') ||
+                    message.includes('could not connect') ||
+                    message.includes('failed to connect') ||
+                    message.includes('connection refused');
             }
 
             async function queueFetch(url, opts = {}, priority = PRIORITY.other) {
@@ -16681,7 +16851,7 @@ window._libcurlReady = true;
                 } catch (curlErr) {
                     const msg = (curlErr.message || '').toLowerCase();
                     const isAborted = curlErr.name === 'AbortError' || (opts.signal?.aborted);
-                    const isConnectFailure = Number(curlErr.code) === 7 || msg.includes('could not connect') || msg.includes('failed to connect') || msg.includes('connection refused') || msg.includes('error code 7');
+                    const isConnectFailure = isConnectionFailure(curlErr);
                     // Expanded kill-pattern list — catches Lightspeed mid-stream resets,
                     // RST packets, TLS termination, and generic WebSocket drops
                     const isWispDrop = !isAborted && !isConnectFailure && (
@@ -19325,11 +19495,8 @@ parent.postMessage({ t: 'ready' }, '*');
                 const d = ev.data;
                 if (!d?.t) return;
                 if (ev.source == null) return;
-                // Accept the top frame, self, or any proxied descendant iframe — every
-                // nested iframe is now rendered as a blob running the proxy runtime and
-                // talks to window.top directly, so there are no unproxied foreign frames
-                // to spoof commands. Request replies go back to ev.source (below) so each
-                // frame receives only its own responses.
+                if (!isActivePageMessageSource(ev.source)) return;
+                // Request replies go back to the active page's source frame.
                 const _replyTo = ev.source;
 
                 if (d.t === 'hint') {
@@ -20232,22 +20399,23 @@ _VIEWER_DL_JS +
                     return;
                 }
                 const prevBlobUrl = frame.src;
-                frame.style.opacity = '0';
-                _blobLoadPending = true;
-                frame.src = blobUrl;
-                frame.onload = () => {
+                const loadFrame = frame;
+                loadFrame.style.opacity = '0';
+                _intentionalFrameLoads.add(loadFrame);
+                loadFrame.src = blobUrl;
+                loadFrame.onload = () => {
                     const loadedTab = tabs.find(t => t.id === initiatorTabId);
                     if (loadedTab) { loadedTab.blobSrc = blobUrl; loadedTab.memBytes = blob.size; enforceBlobCap(); }
-                    frame.onload = null;
+                    loadFrame.onload = null;
                 };
-                const _vpOpacitySafe = setTimeout(() => { frame.style.opacity = '1'; frame.style.transition = ''; }, 1500);
+                const _vpOpacitySafe = setTimeout(() => { loadFrame.style.opacity = '1'; loadFrame.style.transition = ''; }, 1500);
                 setTimeout(() => {
-                    frame.style.transition = 'opacity 0.2s ease-out';
-                    frame.style.opacity = '1';
+                    loadFrame.style.transition = 'opacity 0.2s ease-out';
+                    loadFrame.style.opacity = '1';
                     clearTimeout(_vpOpacitySafe);
-                    setTimeout(() => { frame.style.transition = ''; }, 220);
+                    setTimeout(() => { loadFrame.style.transition = ''; }, 220);
                 }, 50);
-                if (prevBlobUrl && prevBlobUrl.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(prevBlobUrl), 2000);
+                revokeBlobWhenUnused(prevBlobUrl, initiatorTabId);
                 hideOverlay();
                 if (document.activeElement === urlInput) urlInput.blur();
                 setTabTitle(title);
@@ -20398,6 +20566,7 @@ _VIEWER_DL_JS +
                 tabAbortControllers.set(initiatorTabId, tabCtrl);
                 if (initiatorTabId === activeTabId) abortCtrl = tabCtrl;
 
+                let replacedBlobUrl = null;
                 if (activeTabId === initiatorTabId && !isInvalidInternal(url)) {
                     frame.onload = null;
                     // Mark this as a GUST-initiated load. The iframe is sandboxed, so
@@ -20405,7 +20574,8 @@ _VIEWER_DL_JS +
                     // origin) — including this about:blank clear. Without this flag the
                     // native-escape interceptor treats our own blanking as an escape and
                     // can re-enter go(), which blanks again → infinite load loop.
-                    _blobLoadPending = true;
+                    replacedBlobUrl = frame.src;
+                    _intentionalFrameLoads.add(frame);
                     frame.src = 'about:blank';
                 }
 
@@ -20415,7 +20585,9 @@ _VIEWER_DL_JS +
                 if (currentTab) {
                     currentTab.cachedContent = null;
                     currentTab.cachedUrl = null;
+                    currentTab.blobSrc = null;
                 }
+                revokeBlobWhenUnused(replacedBlobUrl, initiatorTabId);
 
                 if (isInvalidInternal(url)) {
                     log("Invalid Internal URL: " + url, "err");
@@ -21524,10 +21696,11 @@ _VIEWER_DL_JS +
                         addRecentSite(url);
                         return;
                     }
-                    frame.style.opacity = '0';
-                    _blobLoadPending = true;
-                    frame.src = newBlobUrl;
-                    frame.onload = () => {
+                    const loadFrame = frame;
+                    loadFrame.style.opacity = '0';
+                    _intentionalFrameLoads.add(loadFrame);
+                    loadFrame.src = newBlobUrl;
+                    loadFrame.onload = () => {
                         // Re-apply mute state after new content loads
                         const loadedTab = tabs.find(t => t.id === initiatorTabId);
                         if (loadedTab) {
@@ -21536,19 +21709,17 @@ _VIEWER_DL_JS +
                             loadedTab.memBytes = _newBytes;
                             enforceBlobCap();   // keep only N warm background tabs
                         }
-                        frame.onload = null;
+                        loadFrame.onload = null;
                     };
                     // Safety: always restore opacity even if the scheduled fade somehow misfires
-                    const _opacitySafe = setTimeout(() => { frame.style.opacity = '1'; frame.style.transition = ''; }, 1500);
+                    const _opacitySafe = setTimeout(() => { loadFrame.style.opacity = '1'; loadFrame.style.transition = ''; }, 1500);
                     setTimeout(() => {
-                        frame.style.transition = 'opacity 0.2s ease-out';
-                        frame.style.opacity = '1';
+                        loadFrame.style.transition = 'opacity 0.2s ease-out';
+                        loadFrame.style.opacity = '1';
                         clearTimeout(_opacitySafe);
-                        setTimeout(() => { frame.style.transition = ''; }, 220);
+                        setTimeout(() => { loadFrame.style.transition = ''; }, 220);
                     }, 50);
-                    if (prevBlobUrl && prevBlobUrl.startsWith('blob:')) {
-                        setTimeout(() => URL.revokeObjectURL(prevBlobUrl), 2000);
-                    }
+                    revokeBlobWhenUnused(prevBlobUrl, initiatorTabId);
                     hideOverlay();
                     if (document.activeElement === urlInput) urlInput.blur();
                     if (!_isRetry) {
@@ -21584,7 +21755,7 @@ _VIEWER_DL_JS +
                     const _fbDns     = (() => { try { return ls.getItem('gust:fallback:dns')     === '1'; } catch { return false; } })();
 
                     const _eMsg    = (e.message || '').toLowerCase();
-                    const _isConnectionFailure = Number(e.code) === 7 || _eMsg.includes('could not connect') || _eMsg.includes('failed to connect') || _eMsg.includes('connection refused') || _eMsg.includes('error code 7');
+                    const _isConnectionFailure = isConnectionFailure(e);
                     const _retryAttempts = _isConnectionFailure ? 1 : _fbRetries;
                     const _retryDelay = _isConnectionFailure ? 0 : _fbDelay;
                     const _isDns     = _eMsg.includes('dns') || _eMsg.includes('getaddrinfo') || _eMsg.includes('name resolution');
@@ -22023,7 +22194,8 @@ _VIEWER_DL_JS +
                     hideOverlay();
                     setStatus("idle", "Stopped");
                     log("Stopped", "warn");
-                    frame.src = 'about:blank'; 
+                    _intentionalFrameLoads.add(frame);
+                    frame.src = 'about:blank';
                     if (window.stop) window.stop(); 
                 }
             };
@@ -23618,7 +23790,7 @@ _VIEWER_DL_JS +
                         if (confirm("Are you sure you want to RESET EVERYTHING? This will clear all settings, bookmarks, history, and cache. This action cannot be undone.")) {
                             // Kill the iframe immediately so the page stops posting messages
                             // that could re-trigger fetches while we're tearing down.
-                            try { frame.onload = null; frame.src = 'about:blank'; } catch(e) {}
+                            try { frame.onload = null; _intentionalFrameLoads.add(frame); frame.src = 'about:blank'; } catch(e) {}
                             // clearCache() aborts all controllers+queue, resets fetching,
                             // wipes memCache/inFlight/IndexedDB, and updates the display.
                             await clearCache();
@@ -26456,7 +26628,7 @@ _VIEWER_DL_JS +
                     q = (q || '').trim();
                     if (!q) return;
                     if (looksLikeUrl(q)) go(q);
-                    else go('https://www.google.com/search?q=' + encodeURIComponent(q));
+                    else go('https://www.google.com/search?client=firefox-b-d&q=' + encodeURIComponent(q));
                 }
                 function chromeSuggestions(q) {
                     const out = [];
@@ -27490,22 +27662,25 @@ _VIEWER_DL_JS +
                     else if (e.key && e.key.length === 1) gxPlay('TYPING_LETTER');
                 }, true);
                 // typing inside proxied pages
-                frame.addEventListener('load', () => {
-                    try {
-                        const doc = frame.contentDocument;
-                        if (!doc || doc.__gxSnd) return;
-                        doc.__gxSnd = true;
-                        doc.addEventListener('keydown', e => {
-                            if (!gxAudioOn()) return;
-                            gxs.activity = Math.min(30, gxs.activity + 1);
-                            if (e.key === 'Enter') gxPlay('TYPING_ENTER');
-                            else if (e.key === ' ') gxPlay('TYPING_SPACE');
-                            else if (e.key === 'Backspace') gxPlay('TYPING_BACKSPACE');
-                            else if (e.key && e.key.length === 1) gxPlay('TYPING_LETTER');
-                        }, true);
-                        doc.addEventListener('pointerdown', () => { if (gxAudioOn()) { gxs.activity = Math.min(30, gxs.activity + 2); gxPlay('CLICK'); } }, true);
-                    } catch (_) {}
-                });
+                attachFrameAuxListeners = targetFrame => {
+                    targetFrame.addEventListener('load', () => {
+                        try {
+                            const doc = targetFrame.contentDocument;
+                            if (!doc || doc.__gxSnd) return;
+                            doc.__gxSnd = true;
+                            doc.addEventListener('keydown', e => {
+                                if (!gxAudioOn()) return;
+                                gxs.activity = Math.min(30, gxs.activity + 1);
+                                if (e.key === 'Enter') gxPlay('TYPING_ENTER');
+                                else if (e.key === ' ') gxPlay('TYPING_SPACE');
+                                else if (e.key === 'Backspace') gxPlay('TYPING_BACKSPACE');
+                                else if (e.key && e.key.length === 1) gxPlay('TYPING_LETTER');
+                            }, true);
+                            doc.addEventListener('pointerdown', () => { if (gxAudioOn()) { gxs.activity = Math.min(30, gxs.activity + 2); gxPlay('CLICK'); } }, true);
+                        } catch (_) {}
+                    });
+                };
+                attachFrameAuxListeners(frame);
                 // switch / limiter sounds
                 document.addEventListener('click', e => {
                     if (!gxAudioOn() || !gxs.on) return;
@@ -30089,6 +30264,146 @@ _VIEWER_DL_JS +
             </div>
         </div>
     </div>
+
+    <script>
+        (() => {
+            const overlay = document.getElementById('releaseCountdown');
+            if (!overlay) return;
+
+            const releaseAt = Date.UTC(2026, 10, 10, 18, 0, 0);
+            const celebrationKey = 'scout:release-countdown:celebrated:v1';
+            const daysEl = document.getElementById('releaseDays');
+            const hoursEl = document.getElementById('releaseHours');
+            const minutesEl = document.getElementById('releaseMinutes');
+            const secondsEl = document.getElementById('releaseSeconds');
+            const title = document.getElementById('releaseTitle');
+            const eyebrow = document.getElementById('releaseEyebrow');
+            const liveMessage = document.getElementById('releaseLive');
+            const canvas = document.getElementById('releaseFireworks');
+            const context = canvas.getContext('2d');
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let timer = null;
+            let animationFrame = 0;
+            let finishTimer = null;
+            let particles = [];
+            let celebrationStarted = false;
+            let canvasScale = 1;
+
+            try {
+                if (Date.now() >= releaseAt && localStorage.getItem(celebrationKey) === '1') {
+                    overlay.remove();
+                    return;
+                }
+            } catch (_) {}
+
+            function resizeCanvas() {
+                canvasScale = Math.min(window.devicePixelRatio || 1, 1.5);
+                canvas.width = Math.round(window.innerWidth * canvasScale);
+                canvas.height = Math.round(window.innerHeight * canvasScale);
+                context.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
+            }
+
+            function burst(x, y) {
+                const colors = ['#9de5ff', '#ffd36e', '#ff8e83', '#b5a6ff', '#9ff0bb'];
+                const count = 54;
+                for (let i = 0; i < count; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 1.2 + Math.random() * 4.1;
+                    particles.push({
+                        x, y, px: x, py: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 45 + Math.random() * 35,
+                        maxLife: 80,
+                        size: 1.2 + Math.random() * 1.8,
+                        color: colors[Math.floor(Math.random() * colors.length)]
+                    });
+                }
+            }
+
+            function drawFireworks() {
+                if (!overlay.isConnected || !overlay.classList.contains('is-live')) return;
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                context.fillStyle = 'rgba(7, 11, 18, 0.2)';
+                context.fillRect(0, 0, width, height);
+                particles = particles.filter(particle => particle.life > 0);
+                for (const particle of particles) {
+                    particle.px = particle.x;
+                    particle.py = particle.y;
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    particle.vx *= 0.985;
+                    particle.vy = particle.vy * 0.985 + 0.035;
+                    particle.life--;
+                    context.globalAlpha = Math.max(0, particle.life / particle.maxLife);
+                    context.strokeStyle = particle.color;
+                    context.lineWidth = particle.size;
+                    context.beginPath();
+                    context.moveTo(particle.px, particle.py);
+                    context.lineTo(particle.x, particle.y);
+                    context.stroke();
+                }
+                context.globalAlpha = 1;
+                animationFrame = requestAnimationFrame(drawFireworks);
+            }
+
+            function finishCelebration() {
+                if (!overlay.isConnected) return;
+                cancelAnimationFrame(animationFrame);
+                overlay.classList.add('is-exiting');
+                try { localStorage.setItem(celebrationKey, '1'); } catch (_) {}
+                setTimeout(() => overlay.remove(), 850);
+            }
+
+            function startCelebration() {
+                if (celebrationStarted) return;
+                celebrationStarted = true;
+                if (timer) clearInterval(timer);
+                title.textContent = 'Scout is live';
+                eyebrow.textContent = 'THE LAUNCH STARTS NOW';
+                liveMessage.textContent = 'Welcome to Scout.';
+                overlay.classList.add('is-live');
+                if (reducedMotion) {
+                    finishTimer = setTimeout(finishCelebration, 1400);
+                    return;
+                }
+                resizeCanvas();
+                const launchBursts = [
+                    [0.23, 0.38, 100], [0.77, 0.32, 430], [0.5, 0.25, 860],
+                    [0.34, 0.48, 1320], [0.67, 0.44, 1780], [0.5, 0.35, 2290]
+                ];
+                for (const [x, y, delay] of launchBursts) {
+                    setTimeout(() => {
+                        if (overlay.isConnected) burst(window.innerWidth * x, window.innerHeight * y);
+                    }, delay);
+                }
+                animationFrame = requestAnimationFrame(drawFireworks);
+                finishTimer = setTimeout(finishCelebration, 5000);
+            }
+
+            function updateCountdown() {
+                const totalSeconds = Math.ceil(Math.max(0, releaseAt - Date.now()) / 1000);
+                if (totalSeconds <= 0) {
+                    if (timer) { clearInterval(timer); timer = null; }
+                    startCelebration();
+                    return;
+                }
+                const days = Math.floor(totalSeconds / 86400);
+                const hours = Math.floor((totalSeconds % 86400) / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                daysEl.textContent = String(days).padStart(2, '0');
+                hoursEl.textContent = String(hours).padStart(2, '0');
+                minutesEl.textContent = String(minutes).padStart(2, '0');
+                secondsEl.textContent = String(seconds).padStart(2, '0');
+            }
+
+            window.addEventListener('resize', () => { if (celebrationStarted) resizeCanvas(); }, { passive: true });
+            updateCountdown();
+            if (!celebrationStarted) timer = setInterval(updateCountdown, 1000);
+        })();
+    </script>
 
 </body>
 
