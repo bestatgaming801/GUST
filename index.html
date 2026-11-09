@@ -7452,7 +7452,7 @@
                     <i class="fas fa-lock" id="securityIcon"></i>
                     <span id="securityText"></span>
                 </div>
-                <input type="text" class="url-input" id="url" value="gust://newtab" spellcheck="false"
+                <input type="text" class="url-input" id="url" value="scout://newtab" spellcheck="false"
                     autocomplete="off" placeholder="Search or enter address">
                 <span class="omni-drop-hint" id="omniDropHint">
                     <i class="fas fa-arrow-right-to-bracket"></i>drop to navigate
@@ -12781,6 +12781,8 @@ window._libcurlReady = true;
             let streamCount = 0;
             let idleTimer = null;
             const HOME_INTERNAL = "gust://newtab";
+            const HOME_DISPLAY = "scout://newtab";
+            const displayUrl = url => url === HOME_INTERNAL ? HOME_DISPLAY : url;
 
             const SETTINGS_INTERNAL = "gust://settings";
             const DISCORD_INTERNAL = "gust://discord";
@@ -13817,7 +13819,7 @@ window._libcurlReady = true;
                 hist = [...tab.history];
                 histIdx = tab.historyIndex;
 
-                urlInput.value = tab.url;
+                urlInput.value = displayUrl(tab.url);
                 setTabTitle(tab.title);
                 updateNav();
                 document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tabId == tabId));
@@ -15245,7 +15247,7 @@ window._libcurlReady = true;
                 frame.style.display = "none";
                 overlay.classList.add("hidden");
                 if (progressWrap) progressWrap.classList.add("hidden");
-                urlInput.value = HOME_INTERNAL;
+                urlInput.value = HOME_DISPLAY;
                 pageUrl = HOME_INTERNAL;
                 currentDoc = null;
                 try { const _ov=$('elemHighlightOverlay'); if(_ov) _ov.style.display='none'; } catch(e) {}
@@ -16225,7 +16227,7 @@ window._libcurlReady = true;
                 u = (u || "").trim();
                 if (!u) return "";
                 if (/^gust:\/\/settings(\/.*)?$/i.test(u)) return u.toLowerCase().startsWith("gust://settings/") ? u : SETTINGS_INTERNAL;
-                if (/^gust:\/\/newtab$/i.test(u) || /^about:newtab$/i.test(u)) return HOME_INTERNAL;
+                if (/^(?:gust|scout):\/\/newtab$/i.test(u) || /^about:newtab$/i.test(u)) return HOME_INTERNAL;
                 if (/^gust:\/\/discord$/i.test(u) || /^about:discord$/i.test(u)) return DISCORD_INTERNAL;
                 // gust://extensions = native fallback store; the REAL Chrome Web Store
                 // loads directly through the proxy (boq works since the dynamic-script
@@ -23000,7 +23002,7 @@ _VIEWER_DL_JS +
                             pageUrl = activeTab.url;
                             hist = [...activeTab.history];
                             histIdx = activeTab.historyIndex;
-                            urlInput.value = activeTab.url;
+                            urlInput.value = displayUrl(activeTab.url);
                             setTabTitle(activeTab.title);
                         }
                     } else {
