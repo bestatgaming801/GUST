@@ -12462,10 +12462,12 @@ window._libcurlReady = true;
                 try { ls.setItem('gust:wisp:last-working:v1', url); } catch {}
                 lastWorkingWisp = url;
             }
-            // Use an explicit user-pinned relay when configured; otherwise keep
-            // the same default across computers. Handshake latency alone does not
-            // prove that a relay can fetch pages, so benchmark results stay local.
-            let WISP = (function () { try { return ls.getItem('gust:wisp:v1') || "wss://wisp.mercurywork.shop/"; } catch { return "wss://wisp.mercurywork.shop/"; } })();
+            // Priority: user-pinned relay (gust:wisp:v1) > fastest relay learned
+            // in the background last session (gust:wisp:fastest:v1) > hardcoded
+            // default. The middle tier is why fresh installs land on the slow
+            // hardcoded default only once — after the first background probe the
+            // next launch starts on whatever relay is actually fastest.
+            let WISP = (function () { try { return ls.getItem('gust:wisp:v1') || ls.getItem('gust:wisp:fastest:v1') || "wss://wisp.mercurywork.shop/"; } catch { return "wss://wisp.mercurywork.shop/"; } })();
             // Default fallback relay used when the primary WISP is unreachable
             // (e.g. the primary is down or blocking the client's network). The
             // fallback path is enabled by default but previously shipped with no
@@ -12573,6 +12575,21 @@ window._libcurlReady = true;
                     }
                 })();
                 return _wispBenchmarkPromise;
+            }
+            // After the pool is benchmarked at startup, remember the fastest
+            // healthy relay as the startup default for NEXT launch
+            // (gust:wisp:fastest:v1, read back by the WISP initializer above).
+            // Reuses benchmarkWispPool's latency data — no extra probing. Never
+            // overrides a user-pinned relay and never swaps the live tunnel
+            // mid-session (which would corrupt in-flight fetches on the global
+            // websocket), so it's purely a next-launch optimization with zero
+            // regression surface this session.
+            function rememberFastestRelay() {
+                try { if (ls.getItem('gust:wisp:v1')) return; } catch {}
+                const ranked = getWispPool()
+                    .filter(u => wispHealth[u] && wispHealth[u].healthy && wispHealth[u].latency != null)
+                    .sort((a, b) => wispHealth[a].latency - wispHealth[b].latency);
+                if (ranked[0]) { try { ls.setItem('gust:wisp:fastest:v1', ranked[0]); } catch {} }
             }
             // Servers eligible for `host` right now: known-good (or never-tested),
             // not cooling down for this host, excluding `exclude`. Fastest first.
@@ -21563,9 +21580,6 @@ _VIEWER_DL_JS +
                     const _fbDns     = (() => { try { return ls.getItem('gust:fallback:dns')     === '1'; } catch { return false; } })();
 
                     const _eMsg    = (e.message || '').toLowerCase();
-                    const _isConnectionFailure = e.code === 7 || _eMsg.includes('could not connect') || _eMsg.includes('failed to connect') || _eMsg.includes('connection refused');
-                    const _retryAttempts = _isConnectionFailure ? 1 : _fbRetries;
-                    const _retryDelay = _isConnectionFailure ? 0 : _fbDelay;
                     const _isDns     = _eMsg.includes('dns') || _eMsg.includes('getaddrinfo') || _eMsg.includes('name resolution');
                     const _isTimeout = _eMsg.includes('timeout') || _eMsg.includes('timed out');
                     const _is5xx     = _eMsg.includes('500') || _eMsg.includes('502') || _eMsg.includes('503') || _eMsg.includes('504') || _eMsg.includes('internal server');
@@ -21573,7 +21587,7 @@ _VIEWER_DL_JS +
                     const _triggerMatches = (_isDns && _fbDns) || (_isTimeout && _fbTimeout) || (_is5xx && _fb5xx)
                         || (!_isDns && !_isTimeout && !_is5xx); // generic errors always eligible
 
-                    const _mainRetries = _isConnectionFailure ? 0 : (() => { try { return parseInt(ls.getItem('gust:main:retries'), 10) || 3; } catch { return 3; } })();
+                    const _mainRetries = (() => { try { return parseInt(ls.getItem('gust:main:retries'), 10) || 3; } catch { return 3; } })();
                     const _primaryHost = WISP.replace(/^wss?:\/\//, '').split('/')[0];
 
                     if (!_isRetry && _triggerMatches && !tabAbortControllers.get(initiatorTabId)?.signal?.aborted) {
@@ -21630,11 +21644,11 @@ _VIEWER_DL_JS +
                                 }
 
                                 let _candSuccess = false;
-                                for (let _ri = 0; _ri < _retryAttempts; _ri++) {
+                                for (let _ri = 0; _ri < _fbRetries; _ri++) {
                                     if (tabAbortControllers.get(initiatorTabId)?.signal?.aborted) break;
                                     try {
-                                        log(`<i class="fas fa-rotate-left" style="color:var(--warn)"></i><span style="color:var(--warn)">Retry ${_ri + 1}/${_retryAttempts}</span> <span style="color:var(--tx3);font-family:var(--mono)">via ${_candHost}</span>${_retryDelay > 0 && _ri > 0 ? ` <span style="color:var(--tx3)">(after ${_retryDelay}s)</span>` : ''}`, 'warn');
-                                        if (_retryDelay > 0 && _ri > 0) await new Promise(r => setTimeout(r, _retryDelay * 1000));
+                                        log(`<i class="fas fa-rotate-left" style="color:var(--warn)"></i><span style="color:var(--warn)">Retry ${_ri + 1}/${_fbRetries}</span> <span style="color:var(--tx3);font-family:var(--mono)">via ${_candHost}</span>${_fbDelay > 0 && _ri > 0 ? ` <span style="color:var(--tx3)">(after ${_fbDelay}s)</span>` : ''}`, 'warn');
+                                        if (_fbDelay > 0 && _ri > 0) await new Promise(r => setTimeout(r, _fbDelay * 1000));
                                         if (tabAbortControllers.get(initiatorTabId)?.signal?.aborted) break;
                                         await go(url, false, method, body, true);
                                         _candSuccess = true;
@@ -21643,10 +21657,10 @@ _VIEWER_DL_JS +
                                         break;
                                     } catch (_candErr) {
                                         if (_candErr.name === 'AbortError') break;
-                                        if (_ri + 1 < _retryAttempts) {
-                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">Retry ${_ri + 1}/${_retryAttempts} failed:</span> <span style="color:var(--tx3)">${_candErr.message.slice(0, 55)}</span>`, 'err');
+                                        if (_ri + 1 < _fbRetries) {
+                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">Retry ${_ri + 1}/${_fbRetries} failed:</span> <span style="color:var(--tx3)">${_candErr.message.slice(0, 55)}</span>`, 'err');
                                         } else {
-                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">All ${_retryAttempts} retries failed on ${_candHost}</span>`, 'err');
+                                            log(`<i class="fas fa-circle-xmark" style="color:var(--err)"></i><span style="color:var(--err)">All ${_fbRetries} retries failed on ${_candHost}</span>`, 'err');
                                         }
                                     }
                                 }
@@ -22640,8 +22654,9 @@ _VIEWER_DL_JS +
             $("settingsBtn").onclick = () => go(SETTINGS_INTERNAL);
             wireSettingsEvents();
             // Background-benchmark the WISP pool at startup so round-robin picks
-            // (if enabled) already have latency data for the first navigation.
-            Promise.resolve(benchmarkWispPool()).catch(() => {});
+            // (if enabled) already have latency data for the first navigation, then
+            // remember the fastest healthy relay as next launch's startup default.
+            Promise.resolve(benchmarkWispPool()).then(rememberFastestRelay, () => {});
 
             const settingsSearch = $('settingsSearch');
             const settingsSearchStatus = $('settingsSearchStatus');
@@ -23040,6 +23055,7 @@ _VIEWER_DL_JS +
                         libcurl.set_websocket(WISP);
                         curl = new libcurl.HTTPSession();
                         curl.set_connections(MAX_CONCURRENT, MAX_CONCURRENT, MAX_CONCURRENT);
+                        persistWorkingWisp(WISP);
                         log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i><span style="color:var(--ok)">libcurl initialized successfully</span>`, "ok");
                         log(`Ready! (${MAX_CONCURRENT} connections, 1h cache) <span style="color:var(--tx3);font-size:11px;font-family:var(--mono)">via ${WISP.replace(/^wss?:\/\//, '').split('/')[0]}</span>`, "ok");
                     } catch (e) {
@@ -23065,7 +23081,7 @@ _VIEWER_DL_JS +
                     if (poolModeOn() && typeof curl !== 'undefined' && curl) {
                         try {
                             showBootBenchmark();
-                            const bench = benchmarkWispPool(setBootBenchmarkProgress);
+                            const bench = benchmarkWispPool(setBootBenchmarkProgress).then(() => { try { rememberFastestRelay(); } catch (e) {} });
                             // live progress even when setup started the benchmark first
                             const tick = setInterval(() => {
                                 const pool = getWispPool();
@@ -27987,6 +28003,7 @@ _VIEWER_DL_JS +
                     wispBench.addEventListener('click', () => {
                         wispBench.disabled = true; wispBench.textContent = 'Benchmarking…';
                         Promise.resolve(benchmarkWispPool()).then(() => {
+                            try { rememberFastestRelay(); } catch (_) {}
                             renderGXWispList();
                             wispBench.disabled = false; wispBench.textContent = 'Re-benchmark relays now';
                             gxPlay('LEVEL_UPGRADE');
