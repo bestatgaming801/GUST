@@ -30286,6 +30286,7 @@ _VIEWER_DL_JS +
             }
 
             const releaseAt = Date.UTC(2026, 10, 10, 18, 0, 0);
+            const previewKey = 'scout:release-countdown:preview:v1';
             const daysEl = document.getElementById('releaseDays');
             const hoursEl = document.getElementById('releaseHours');
             const minutesEl = document.getElementById('releaseMinutes');
@@ -30306,6 +30307,13 @@ _VIEWER_DL_JS +
             let particles = [];
             let celebrationStarted = false;
             let canvasScale = 1;
+
+            try {
+                if (localStorage.getItem(previewKey) === '1') {
+                    overlay.remove();
+                    return;
+                }
+            } catch (_) {}
 
             function resizeCanvas() {
                 canvasScale = Math.min(window.devicePixelRatio || 1, 1.5);
