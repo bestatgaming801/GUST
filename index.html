@@ -8136,8 +8136,9 @@
                                         </div>
                                         <div style="display:flex; align-items:center; gap:8px; margin-top:14px;">
                                             <button class="settings-btn-icon" id="settingsPoolBenchmarkBtn" title="Benchmark all servers"><i class="fas fa-gauge-high"></i></button>
-                                            <span class="settings-hint" id="settingsPoolBenchmarkStatus" style="margin:0;">Not benchmarked yet</span>
+                                            <span class="settings-hint" id="settingsPoolBenchmarkStatus" style="margin:0;" role="status" aria-live="polite">Not benchmarked yet</span>
                                         </div>
+                                        <div class="settings-hint" style="margin-top:8px;">Per-relay diagnostics: HTTPS tunnel result, response status, latency, and last check time.</div>
                                         <div id="settingsPoolList" style="margin-top:12px; display:flex; flex-direction:column; gap:6px; max-height:260px; overflow-y:auto;"></div>
                                     </div>
                                 </div>
@@ -12731,6 +12732,11 @@ window._libcurlReady = true;
                     message = `Checking service connectivity · ${wispPoolCheck.completed} of ${wispPoolCheck.total} relays tested`;
                 }
                 status.dataset.state = state;
+                const fullyOperational = wispPoolCheck.finished &&
+                    wispPoolCheck.tested === wispPoolCheck.total &&
+                    wispPoolCheck.healthy === wispPoolCheck.total &&
+                    wispPoolCheck.total > 0;
+                status.style.display = fullyOperational ? 'none' : 'flex';
                 status.setAttribute('aria-label', message);
                 if (dot) dot.className = `nt-service-status-dot ${state}`;
                 if (label) label.textContent = message;
@@ -12758,10 +12764,12 @@ window._libcurlReady = true;
                                 signal: controller.signal
                             });
                             await response.arrayBuffer();
-                            if (response.status < 100 || response.status >= 600) return { latency: null, deferred: false };
-                            return { latency: performance.now() - startedAt, deferred: false };
-                        } catch {
-                            return { latency: null, deferred: false };
+                            if (response.status < 100 || response.status >= 600) {
+                                return { latency: null, deferred: false, error: `Unexpected HTTP status ${response.status}` };
+                            }
+                            return { latency: performance.now() - startedAt, deferred: false, status: response.status, error: '' };
+                        } catch (error) {
+                            return { latency: null, deferred: false, status: null, error: error.message || 'Tunnel request failed' };
                         } finally {
                             clearTimeout(timeout);
                         }
@@ -12789,7 +12797,9 @@ window._libcurlReady = true;
                 return {
                     latency: result.latency,
                     healthy: result.deferred ? null : result.latency !== null,
-                    samples: result.latency === null ? 0 : 1
+                    samples: result.latency === null ? 0 : 1,
+                    status: result.status ?? null,
+                    error: result.error || (result.deferred ? 'Check deferred while another request was active' : '')
                 };
             }
             let wispBenchmarking = false;
@@ -12803,18 +12813,21 @@ window._libcurlReady = true;
                     try {
                         const pool = getWispPool();
                         wispPoolCheck = { completed: 0, tested: 0, healthy: 0, total: pool.length, finished: false };
+                        for (const url of pool) delete wispHealth[url];
                         updateHomeServiceStatus();
+                        if (typeof renderWispPoolList === 'function') renderWispPoolList();
+                        if (typeof renderGXWispList === 'function') renderGXWispList();
                         let done = 0;
                         await Promise.all(pool.map(async url => {
                             try {
-                                const { latency, healthy, samples } = await probeWispPoolServer(url);
-                                wispHealth[url] = { latency, checkedAt: Date.now(), healthy, samples };
+                                const { latency, healthy, samples, status, error } = await probeWispPoolServer(url);
+                                wispHealth[url] = { latency, checkedAt: Date.now(), healthy, samples, status, error };
                                 if (healthy !== null) {
                                     wispPoolCheck.tested++;
                                     if (healthy) wispPoolCheck.healthy++;
                                 }
                             } catch (error) {
-                                wispHealth[url] = { latency: null, checkedAt: Date.now(), healthy: false, samples: 0 };
+                                wispHealth[url] = { latency: null, checkedAt: Date.now(), healthy: false, samples: 0, status: null, error: error.message || 'Tunnel test failed' };
                                 wispPoolCheck.tested++;
                                 log(`WISP benchmark failed for ${url}: ${error.message}`, 'err');
                             }
@@ -23728,27 +23741,73 @@ _VIEWER_DL_JS +
                 if (!list) return;
                 const pool = getWispPool();
                 const ranked = [...pool].sort((a, b) => (wispHealth[a]?.latency ?? 1e9) - (wispHealth[b]?.latency ?? 1e9));
-                list.innerHTML = ranked.map(url => {
+                list.replaceChildren();
+                for (const url of ranked) {
                     const h = wispHealth[url];
-                    const host = url.replace(/^wss?:\/\//, '').split('/')[0];
-                    let dotColor = 'var(--tx3)', label = 'not tested';
+                    let host = url;
+                    try { host = new URL(url).host; } catch {}
+                    let state = 'Not checked';
+                    let detail = 'Run a benchmark to verify this relay can tunnel HTTPS.';
+                    let dotColor = 'var(--tx3)';
                     if (h) {
-                        const suffix = h.samples > 1 ? ` avg×${h.samples}` : '';
-                        if (!h.healthy) { dotColor = 'var(--err)'; label = 'unreachable'; }
-                        else if (h.latency < 300) { dotColor = 'var(--ok)'; label = Math.round(h.latency) + 'ms' + suffix; }
-                        else if (h.latency < 800) { dotColor = 'var(--warn)'; label = Math.round(h.latency) + 'ms' + suffix; }
-                        else { dotColor = 'var(--warn)'; label = Math.round(h.latency) + 'ms (slow)' + suffix; }
+                        if (h.healthy) {
+                            dotColor = 'var(--ok)';
+                            state = 'Tunnel operational';
+                            detail = `${Math.round(h.latency)} ms · HTTPS ${h.status || 'response received'}`;
+                        } else if (h.healthy === null) {
+                            dotColor = 'var(--warn)';
+                            state = 'Check deferred';
+                            detail = h.error || 'Another request was active during the check.';
+                        } else {
+                            dotColor = 'var(--err)';
+                            state = 'Tunnel unavailable';
+                            detail = h.error || 'No HTTPS response received through this relay.';
+                        }
+                        if (h.checkedAt) {
+                            detail += ` · Checked ${new Date(h.checkedAt).toLocaleString()}`;
+                        }
                     }
-                    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;font-family:var(--mono);color:var(--tx2);padding:4px 6px;border-radius:4px;background:rgba(255,255,255,0.03);">
-                        <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>
-                        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${host}</span>
-                        <span style="color:var(--tx3);">${label}</span>
-                    </div>`;
-                }).join('');
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:grid;grid-template-columns:10px minmax(0,1fr);column-gap:9px;row-gap:3px;padding:8px;border-radius:6px;background:rgba(255,255,255,0.03);';
+                    const dot = document.createElement('span');
+                    dot.style.cssText = `width:8px;height:8px;margin-top:4px;border-radius:50%;background:${dotColor};`;
+                    dot.setAttribute('aria-hidden', 'true');
+                    const heading = document.createElement('div');
+                    heading.style.cssText = 'display:flex;justify-content:space-between;gap:10px;min-width:0;font:12px var(--mono);color:var(--tx2);';
+                    const hostEl = document.createElement('span');
+                    hostEl.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    hostEl.textContent = host;
+                    const stateEl = document.createElement('span');
+                    stateEl.style.cssText = `flex-shrink:0;color:${dotColor};`;
+                    stateEl.textContent = state;
+                    heading.append(hostEl, stateEl);
+                    const detailEl = document.createElement('div');
+                    detailEl.style.cssText = 'grid-column:2;overflow-wrap:anywhere;font-size:11px;line-height:1.45;color:var(--tx3);';
+                    detailEl.textContent = detail;
+                    row.append(dot, heading, detailEl);
+                    list.appendChild(row);
+                }
                 const statusEl = $("settingsPoolBenchmarkStatus");
                 if (statusEl) {
-                    const tested = pool.filter(u => wispHealth[u]).length;
-                    statusEl.textContent = tested ? `${tested}/${pool.length} servers benchmarked` : "Not benchmarked yet";
+                    const checked = pool.map(url => wispHealth[url]).filter(health => health?.checkedAt && health.healthy !== null);
+                    const healthy = checked.filter(health => health.healthy).length;
+                    const checkedAt = checked.reduce((latest, health) => Math.max(latest, health.checkedAt), 0);
+                    if (!checked.length) {
+                        statusEl.textContent = "Not benchmarked yet";
+                        statusEl.style.color = '';
+                    } else if (checked.length < pool.length) {
+                        statusEl.textContent = `Checking relays · ${checked.length}/${pool.length} checked · ${healthy} available`;
+                        statusEl.style.color = 'var(--warn)';
+                    } else if (healthy === 0) {
+                        statusEl.textContent = `Service currently down · 0/${pool.length} relays available · checked ${new Date(checkedAt).toLocaleString()}`;
+                        statusEl.style.color = 'var(--err)';
+                    } else if (healthy < pool.length) {
+                        statusEl.textContent = `Service degraded · ${healthy}/${pool.length} relays available · checked ${new Date(checkedAt).toLocaleString()}`;
+                        statusEl.style.color = 'var(--warn)';
+                    } else {
+                        statusEl.textContent = `Operational · all ${pool.length} relays available · checked ${new Date(checkedAt).toLocaleString()}`;
+                        statusEl.style.color = 'var(--ok)';
+                    }
                 }
             }
 
