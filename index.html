@@ -2524,6 +2524,48 @@
             color: var(--tx3)
         }
 
+        .nt-service-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: min(700px, 100%);
+            min-height: 38px;
+            margin-top: -8px;
+            padding: 8px 12px;
+            border: 1px solid rgba(157, 229, 255, .22);
+            border-radius: 8px;
+            background: rgba(13, 15, 18, .62);
+            color: var(--tx2);
+            font-size: 12px;
+            line-height: 1.4;
+            text-align: left;
+        }
+        .nt-service-status-dot {
+            width: 9px;
+            height: 9px;
+            flex: 0 0 9px;
+            border-radius: 50%;
+            background: #eab308;
+            box-shadow: 0 0 9px rgba(234, 179, 8, .45);
+        }
+        .nt-service-status-dot.online { background: #22c55e; box-shadow: 0 0 9px rgba(34, 197, 94, .5); }
+        .nt-service-status-dot.degraded { background: #f59e0b; box-shadow: 0 0 9px rgba(245, 158, 11, .5); }
+        .nt-service-status-dot.down { background: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, .65); }
+        .nt-service-status[data-state="down"] {
+            border-color: rgba(239, 68, 68, .5);
+            background: rgba(70, 18, 22, .72);
+            color: #fecaca;
+        }
+        .nt-service-status[data-state="degraded"] {
+            border-color: rgba(245, 158, 11, .4);
+            background: rgba(65, 43, 12, .55);
+            color: #fde68a;
+        }
+        .nt-service-status[data-state="online"] {
+            border-color: rgba(34, 197, 94, .3);
+            color: #bbf7d0;
+        }
+
         .nt-search button {
             height: 44px;
             padding: 0 24px;
@@ -7697,6 +7739,10 @@
                             <input id="ntSearch" placeholder="Search or enter address" autocomplete="off">
                             <button id="ntSearchBtn"><i class="fas fa-arrow-right"></i></button>
                         </div>
+                        <div class="nt-service-status" id="ntServiceStatus" data-state="checking" role="status" aria-live="polite">
+                            <span class="nt-service-status-dot checking" aria-hidden="true"></span>
+                            <span class="nt-service-status-label">Checking service connectivity…</span>
+                        </div>
                         <div class="nt-favorites" id="ntFavorites"></div>
                     </div>
                 </div>
@@ -12619,20 +12665,11 @@ window._libcurlReady = true;
             const DEFAULT_FALLBACK_WISP = "wss://mages.io/wisp/";
 
             // ── WISP pool: round-robin across a list of public relays ──────
-            // Benchmarked by raw WebSocket handshake time; the pool is only
-            // consulted when Settings → Connection → "Enable pool round-robin"
+            // The pool is consulted when Settings → Connection → "Enable pool round-robin"
             // is on. WISP (above) stays the sticky single-server config used
-            // everywhere else, so pool mode is fully opt-in.
-            // Every entry verified live END-TO-END from a file:// null-origin
-            // context (the only environment that matches GUST): open WS → WISP
-            // CONTINUE handshake → real CONNECT+DATA proxying a live HTTP request,
-            // 3/3 reliability runs. NOT just DNS/WS-upgrade — a bare handshake
-            // passes on dead-backend proxies and on relays that reject file://
-            // origin, both of which are excluded here. Re-verified 2026-07-16
-            // (13 relays; ~110 candidate hosts tested, the rest were unregistered,
-            // static-only, dead-backend, or file://-rejecting). Ordered
-            // fastest-first by measured median latency, though rankPoolCandidates
-            // re-sorts on live health data at runtime.
+            // everywhere else.
+            // These defaults are only considered healthy after a real HTTPS request
+            // succeeds through the WISP tunnel; a WebSocket upgrade alone is insufficient.
             const WISP_POOL_DEFAULTS = [...new Set([
                 "wss://definitelyscience.com/wisp/",   // 111ms
                 "wss://mages.io/wisp/",                // 114ms
@@ -12662,35 +12699,98 @@ window._libcurlReady = true;
             // Multi-WISP round-robin. Default ON (unset → enabled): '0' is the only
             // off value, so a fresh install gets pool resilience without opting in.
             function poolModeOn() { try { return ls.getItem('gust:wisp:poolmode:v1') !== '0'; } catch { return true; } }
-            function probeWispLatency(url, ms = 6000) {
-                return new Promise(resolve => {
-                    const t0 = performance.now();
-                    let done = false, ws;
-                    try { ws = new WebSocket(url); } catch { resolve(null); return; }
-                    const timer = setTimeout(() => finish(null), ms);
-                    function finish(v) { if (done) return; done = true; clearTimeout(timer); try { ws.close(); } catch {} resolve(v); }
-                    ws.onopen = () => finish(performance.now() - t0);
-                    ws.onerror = () => finish(null);
+            let wispPoolCheck = { completed: 0, tested: 0, healthy: 0, total: 0, finished: false };
+            function updateHomeServiceStatus() {
+                const status = document.getElementById('ntServiceStatus');
+                if (!status) return;
+                const dot = status.querySelector('.nt-service-status-dot');
+                const label = status.querySelector('.nt-service-status-label');
+                let state = 'checking';
+                let message = 'Checking service connectivity…';
+                if (wispPoolCheck.healthy > 0) {
+                    if (wispPoolCheck.finished && wispPoolCheck.tested < wispPoolCheck.total) {
+                        state = 'degraded';
+                        message = `Connection available · ${wispPoolCheck.healthy} relays working; check incomplete`;
+                    } else if (wispPoolCheck.finished && wispPoolCheck.healthy < wispPoolCheck.total) {
+                        state = 'degraded';
+                        message = `Service partially available · ${wispPoolCheck.healthy} of ${wispPoolCheck.total} relays available`;
+                    } else if (wispPoolCheck.finished) {
+                        state = 'online';
+                        message = `Service operational · all ${wispPoolCheck.total} relays available`;
+                    } else {
+                        state = 'online';
+                        message = `Service available · ${wispPoolCheck.healthy} relay${wispPoolCheck.healthy === 1 ? '' : 's'} confirmed`;
+                    }
+                } else if (wispPoolCheck.finished && wispPoolCheck.tested === wispPoolCheck.total && wispPoolCheck.total > 0) {
+                    state = 'down';
+                    message = `Service currently down · all ${wispPoolCheck.total} relays unavailable; search and browsing may fail`;
+                } else if (wispPoolCheck.finished && wispPoolCheck.tested < wispPoolCheck.total) {
+                    state = 'degraded';
+                    message = `Service status uncertain · ${wispPoolCheck.tested} of ${wispPoolCheck.total} relays checked`;
+                } else if (wispPoolCheck.total > 0) {
+                    message = `Checking service connectivity · ${wispPoolCheck.completed} of ${wispPoolCheck.total} relays tested`;
+                }
+                status.dataset.state = state;
+                status.setAttribute('aria-label', message);
+                if (dot) dot.className = `nt-service-status-dot ${state}`;
+                if (label) label.textContent = message;
+            }
+            function probeWispLatency(url, ms = 2500) {
+                return withWispSwapLock(async () => {
+                    _queueDispatchPaused = true;
+                    let probeCurl;
+                    const previousWisp = WISP;
+                    let switched = false;
+                    try {
+                        if (!(await waitForQueueQuiet(5000, 0))) return { latency: null, deferred: true };
+                        await libcurl.load_wasm();
+                        libcurl.set_websocket(url);
+                        switched = true;
+                        probeCurl = new libcurl.HTTPSession();
+                        probeCurl.set_connections(1, 1, 1);
+                        const controller = new AbortController();
+                        const timeout = setTimeout(() => controller.abort(), ms);
+                        try {
+                            const startedAt = performance.now();
+                            const response = await probeCurl.fetch('https://example.com/', {
+                                method: 'GET',
+                                redirect: 'manual',
+                                signal: controller.signal
+                            });
+                            await response.arrayBuffer();
+                            if (response.status < 100 || response.status >= 600) return { latency: null, deferred: false };
+                            return { latency: performance.now() - startedAt, deferred: false };
+                        } catch {
+                            return { latency: null, deferred: false };
+                        } finally {
+                            clearTimeout(timeout);
+                        }
+                    } finally {
+                        try { probeCurl?.close(); } catch {}
+                        try {
+                            if (switched) {
+                                try {
+                                    await libcurl.load_wasm();
+                                    libcurl.set_websocket(previousWisp);
+                                } catch (error) {
+                                    log(`Could not restore the WISP relay after benchmarking: ${error.message}`, 'err');
+                                    throw error;
+                                }
+                            }
+                        } finally {
+                            _queueDispatchPaused = false;
+                            runQueue();
+                        }
+                    }
                 });
             }
-            // Single-shot latency is noisy (one slow handshake can make a fast
-            // server look bad, or vice versa). Sample up to 10x sequentially and
-            // average the successes — but bail after 3 straight failures so a
-            // genuinely dead server doesn't cost 10 full timeouts.
-            async function probeWispPoolServer(url, attempts = 10, ms = 4000) {
-                const samples = [];
-                let consecutiveFails = 0;
-                for (let i = 0; i < attempts; i++) {
-                    const latency = await probeWispLatency(url, ms);
-                    if (latency == null) {
-                        if (++consecutiveFails >= 3) break;
-                    } else {
-                        consecutiveFails = 0;
-                        samples.push(latency);
-                    }
-                }
-                if (!samples.length) return { latency: null, healthy: false, samples: 0 };
-                return { latency: samples.reduce((a, b) => a + b, 0) / samples.length, healthy: true, samples: samples.length };
+            async function probeWispPoolServer(url, ms = 2500) {
+                const result = await probeWispLatency(url, ms);
+                return {
+                    latency: result.latency,
+                    healthy: result.deferred ? null : result.latency !== null,
+                    samples: result.latency === null ? 0 : 1
+                };
             }
             let wispBenchmarking = false;
             let _wispBenchmarkPromise = null;
@@ -12702,15 +12802,31 @@ window._libcurlReady = true;
                 _wispBenchmarkPromise = (async () => {
                     try {
                         const pool = getWispPool();
+                        wispPoolCheck = { completed: 0, tested: 0, healthy: 0, total: pool.length, finished: false };
+                        updateHomeServiceStatus();
                         let done = 0;
                         await Promise.all(pool.map(async url => {
-                            const { latency, healthy, samples } = await probeWispPoolServer(url);
-                            wispHealth[url] = { latency, checkedAt: Date.now(), healthy, samples };
+                            try {
+                                const { latency, healthy, samples } = await probeWispPoolServer(url);
+                                wispHealth[url] = { latency, checkedAt: Date.now(), healthy, samples };
+                                if (healthy !== null) {
+                                    wispPoolCheck.tested++;
+                                    if (healthy) wispPoolCheck.healthy++;
+                                }
+                            } catch (error) {
+                                wispHealth[url] = { latency: null, checkedAt: Date.now(), healthy: false, samples: 0 };
+                                wispPoolCheck.tested++;
+                                log(`WISP benchmark failed for ${url}: ${error.message}`, 'err');
+                            }
                             done++;
+                            wispPoolCheck.completed = done;
                             if (onProgress) { try { onProgress(done, pool.length); } catch (e) {} }
+                            updateHomeServiceStatus();
                             if (typeof renderWispPoolList === 'function') renderWispPoolList();
                             if (typeof renderGXWispList === 'function') renderGXWispList();
                         }));
+                        wispPoolCheck.finished = true;
+                        updateHomeServiceStatus();
                         saveWispHealth();
                     } finally {
                         wispBenchmarking = false;
@@ -13690,7 +13806,7 @@ window._libcurlReady = true;
             const SEARCH_ENGINES = {
                 brave: "https://search.brave.com/search?q=",
                 ddg: "https://duckduckgo.com/?q=",
-                google: "https://www.google.com/search?q=",
+                google: "https://www.google.com/search?igu=1&q=",
                 bing: "https://www.bing.com/search?q="
             };
             const WALLPAPER_QUERIES = ["aurora", "nebula", "ocean", "fog", "desert", "mountain", "city night", "forest", "abstract"];
@@ -17050,11 +17166,11 @@ window._libcurlReady = true;
                 _wispSwapMutex = run.catch(() => {});
                 return run;
             }
-            function waitForQueueQuiet(timeoutMs = 1500) {
+            function waitForQueueQuiet(timeoutMs = 1500, maxFetching = 1) {
                 return new Promise(resolve => {
                     const deadline = Date.now() + timeoutMs;
                     (function check() {
-                        if (fetching <= 1) return resolve(true);
+                        if (fetching <= maxFetching) return resolve(true);
                         if (Date.now() >= deadline) return resolve(false);
                         setTimeout(check, 25);
                     })();
