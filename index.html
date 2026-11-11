@@ -2598,19 +2598,6 @@
             align-items: center;
         }
 
-        .scout-hub { width: min(760px, 100%); margin: -20px 0 34px; text-align: left; }
-        .scout-hub-heading { margin: 0 0 10px; color: var(--tx2); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-align: center; text-transform: uppercase; }
-        .scout-hub-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-        .scout-hub-card {
-            display: flex; align-items: center; gap: 10px; min-width: 0; padding: 11px 12px;
-            border: 1px solid rgba(255,255,255,.16); border-radius: 10px;
-            background: rgba(13,15,18,.68); color: var(--tx); cursor: pointer; text-align: left;
-            transition: border-color .15s, background .15s, transform .15s;
-        }
-        .scout-hub-card:hover { border-color: var(--ac); background: rgba(157,229,255,.1); transform: translateY(-1px); }
-        .scout-hub-card i { width: 18px; color: var(--ac); text-align: center; }
-        .scout-hub-card span { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-        .scout-hub-card:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
         #scoutHubModal .bookmark-modal-content,
         #readerModal .bookmark-modal-content {
             width: min(820px, calc(100vw - 32px)); max-height: min(88vh, 760px);
@@ -5311,9 +5298,6 @@
             .nt-brand i { font-size: .9em; }
             .nt-search { width: min(700px, 100%); }
             .nt-favorites { gap: 9px; padding-bottom: 20px; }
-            .scout-hub { margin-top: -14px; }
-            .scout-hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .scout-hub-card { padding: 10px; }
             #readerText { font-size: 16px; }
         }
 
@@ -7714,23 +7698,6 @@
                             <button id="ntSearchBtn"><i class="fas fa-arrow-right"></i></button>
                         </div>
                         <div class="nt-favorites" id="ntFavorites"></div>
-                        <section class="scout-hub" aria-label="Scout features and resources">
-                            <h2 class="scout-hub-heading">Explore Scout</h2>
-                            <div class="scout-hub-grid">
-                                <button class="scout-hub-card" data-hub-action="tour"><i class="fas fa-compass"></i><span>Interactive tour</span></button>
-                                <button class="scout-hub-card" data-hub-action="updates"><i class="fas fa-sparkles"></i><span>What's new</span></button>
-                                <button class="scout-hub-card" data-hub-action="downloads"><i class="fas fa-download"></i><span>Downloads &amp; status</span></button>
-                                <button class="scout-hub-card" data-hub-action="help"><i class="fas fa-circle-question"></i><span>Help &amp; FAQ</span></button>
-                                <button class="scout-hub-card" data-hub-action="workspaces"><i class="fas fa-layer-group"></i><span>Workspaces</span></button>
-                                <button class="scout-hub-card" data-hub-action="sessions"><i class="fas fa-window-restore"></i><span>Saved tab groups</span></button>
-                                <button class="scout-hub-card" data-hub-action="transfer"><i class="fas fa-right-left"></i><span>Move data between devices</span></button>
-                                <button class="scout-hub-card" data-hub-action="privacy"><i class="fas fa-shield-halved"></i><span>Privacy controls</span></button>
-                                <button class="scout-hub-card" data-hub-action="translate"><i class="fas fa-language"></i><span>Translation settings</span></button>
-                                <button class="scout-hub-card" data-hub-action="status"><i class="fas fa-heart-pulse"></i><span>Service status</span></button>
-                                <button class="scout-hub-card" data-hub-action="roadmap"><i class="fas fa-map"></i><span>Public roadmap</span></button>
-                                <button class="scout-hub-card" data-hub-action="presets"><i class="fas fa-sliders"></i><span>Share settings preset</span></button>
-                            </div>
-                        </section>
                     </div>
                 </div>
 
@@ -7738,7 +7705,7 @@
                     <div class="bookmark-modal-content">
                         <div class="scout-hub-modal-head">
                             <i class="fas fa-earth-americas"></i>
-                            <h2 id="scoutHubTitle">Explore Scout</h2>
+                            <h2 id="scoutHubTitle">Scout</h2>
                         </div>
                         <div class="scout-hub-modal-body" id="scoutHubContent"></div>
                         <div class="bookmark-modal-buttons">
@@ -30343,7 +30310,7 @@ _VIEWER_DL_JS +
                     roadmap: 'Public roadmap',
                     presets: 'Share settings preset'
                 };
-                scoutHubTitle.textContent = labels[action] || 'Explore Scout';
+                scoutHubTitle.textContent = labels[action] || 'Scout';
                 scoutHubContent.replaceChildren();
                 scoutHubModal.style.display = 'flex';
                 releaseRequestId++;
@@ -31241,16 +31208,6 @@ _VIEWER_DL_JS +
                 }
             }
 
-            document.querySelectorAll('.scout-hub-card').forEach(button => {
-                button.addEventListener('click', () => {
-                    const action = button.dataset.hubAction;
-                    if (action === 'translate') {
-                        showSettingsPage(true, 'language');
-                        return;
-                    }
-                    showHub(action);
-                });
-            });
             document.getElementById('scoutHubClose').addEventListener('click', () => {
                 scoutHubModal.style.display = 'none';
             });
