@@ -2600,7 +2600,7 @@
 
         .scout-hub { width: min(760px, 100%); margin: -20px 0 34px; text-align: left; }
         .scout-hub-heading { margin: 0 0 10px; color: var(--tx2); font-size: 11px; font-weight: 700; letter-spacing: .12em; text-align: center; text-transform: uppercase; }
-        .scout-hub-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .scout-hub-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
         .scout-hub-card {
             display: flex; align-items: center; gap: 10px; min-width: 0; padding: 11px 12px;
             border: 1px solid rgba(255,255,255,.16); border-radius: 10px;
@@ -2623,6 +2623,8 @@
         .scout-hub-modal-body h3 { margin: 15px 0 6px; color: var(--tx); font-size: 14px; }
         .scout-hub-modal-body a { color: var(--ac); }
         .scout-hub-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--bd); }
+        .scout-change-summary { display: flex; align-items: flex-start; gap: 9px; }
+        .scout-change-emoji { flex: 0 0 22px; font-size: 16px; line-height: 1.4; text-align: center; }
         .scout-hub-row-title { color: var(--tx); font-weight: 600; }
         .scout-hub-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .scout-hub-action { padding: 8px 12px; border: 1px solid var(--bd); border-radius: 7px; background: var(--bg2); color: var(--tx); cursor: pointer; }
@@ -2632,6 +2634,16 @@
         .scout-hub-faq details { padding: 10px 0; border-top: 1px solid var(--bd); }
         .scout-hub-faq summary { color: var(--tx); cursor: pointer; font-weight: 600; }
         .scout-hub-faq p { margin: 7px 0 0; }
+        .scout-status-indicator { display: inline-flex; align-items: center; gap: 8px; color: var(--tx); font-weight: 600; }
+        .scout-status-dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: var(--tx3); box-shadow: 0 0 10px currentColor; }
+        .scout-status-dot.ok { background: var(--ok); color: var(--ok); }
+        .scout-status-dot.warn { background: var(--warn); color: var(--warn); }
+        .scout-status-dot.err { background: var(--err); color: var(--err); }
+        .scout-roadmap-section { margin: 18px 0 8px; color: var(--tx); font-size: 15px; }
+        .scout-roadmap-item { padding: 11px 0; border-top: 1px solid var(--bd); }
+        .scout-roadmap-item a { color: var(--tx); font-weight: 600; text-decoration: none; }
+        .scout-roadmap-item a:hover { color: var(--ac); }
+        .scout-roadmap-meta { margin-top: 4px; color: var(--tx3); font-size: 11px; }
         #readerText { overflow: auto; max-height: 65vh; white-space: pre-wrap; color: var(--tx); font-family: Georgia, serif; font-size: 17px; line-height: 1.8; }
         #readerTitle { margin-bottom: 14px; color: var(--tx); font-size: 22px; }
 
@@ -7300,38 +7312,29 @@
         .release-kicker-dot { width: 7px; height: 7px; border-radius: 50%; background: #9de5ff; box-shadow: 0 0 12px #9de5ff; }
         .release-eyebrow { margin: 34px 0 10px; color: #91a4b8; font-size: 12px; font-weight: 600; }
         .release-title { margin: 0; color: #f4f9ff; font-size: 44px; font-weight: 700; line-height: 1.1; }
-        .release-subtitle { margin: 12px 0 34px; color: #9eafbf; font-size: 15px; line-height: 1.5; }
-        .release-timer { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-        .release-unit {
-            min-width: 0;
-            padding: 21px 10px 18px;
-            border: 1px solid rgba(129, 177, 210, .22);
-            border-radius: 8px;
-            background: rgba(15, 26, 37, .82);
-            box-shadow: inset 0 1px rgba(255,255,255,.035);
-        }
-        .release-value { display: block; color: #f0f8ff; font-family: var(--mono, monospace); font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
-        .release-unit-label { display: block; margin-top: 10px; color: #8498aa; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-        .release-date { margin: 25px 0 0; color: #b6c4d2; font-size: 13px; }
-        .release-date strong { color: #d7efff; font-weight: 600; }
-        .release-live { display: none; margin-top: 22px; color: #b6c4d2; font-size: 14px; }
+        .release-subtitle { margin: 12px 0 26px; color: #9eafbf; font-size: 15px; line-height: 1.5; }
         .release-countdown.is-live .release-eyebrow { color: #9de5ff; }
         .release-countdown.is-live .release-title { text-shadow: 0 0 28px rgba(99, 211, 255, .3); }
-        .release-countdown.is-live .release-timer,
-        .release-countdown.is-live .release-date { display: none; }
-        .release-countdown.is-live .release-live { display: block; }
-        .release-countdown.is-uptime .release-live { display: none; }
-        .release-uptime { display: none; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
-        .release-countdown.is-uptime .release-uptime { display: grid; }
+        .release-view-button {
+            min-height: 48px;
+            padding: 0 26px;
+            border: 1px solid rgba(132, 212, 255, .55);
+            border-radius: 8px;
+            background: #9de5ff;
+            color: #07111b;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 0 24px rgba(99, 211, 255, .2);
+        }
+        .release-view-button:hover { background: #c1efff; }
+        .release-view-button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
         @media (max-width: 600px) {
             .release-countdown { padding: 20px; }
             .release-title { font-size: 32px; }
-            .release-subtitle { margin-bottom: 26px; font-size: 14px; }
-            .release-timer { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-            .release-uptime { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-            .release-unit { padding: 17px 8px 14px; }
-            .release-value { font-size: 32px; }
+            .release-subtitle { font-size: 14px; }
         }
         @media (prefers-reduced-motion: reduce) {
             .release-countdown { transition: none; }
@@ -7345,23 +7348,10 @@
         <canvas class="release-countdown-canvas" id="releaseFireworks" aria-hidden="true"></canvas>
         <div class="release-content">
             <div class="release-kicker"><span class="release-kicker-dot"></span>SCOUT / PUBLIC RELEASE</div>
-            <p class="release-eyebrow" id="releaseEyebrow">THE WAIT IS ALMOST OVER</p>
-            <h1 class="release-title" id="releaseTitle">Scout launches in</h1>
-            <p class="release-subtitle">A new place to explore is almost ready.</p>
-            <div class="release-timer" id="releaseTimer" role="timer" aria-live="off">
-                <div class="release-unit"><span class="release-value" id="releaseDays">00</span><span class="release-unit-label">Days</span></div>
-                <div class="release-unit"><span class="release-value" id="releaseHours">00</span><span class="release-unit-label">Hours</span></div>
-                <div class="release-unit"><span class="release-value" id="releaseMinutes">00</span><span class="release-unit-label">Minutes</span></div>
-                <div class="release-unit"><span class="release-value" id="releaseSeconds">00</span><span class="release-unit-label">Seconds</span></div>
-            </div>
-            <p class="release-date">Tuesday, November 10 at <strong>1:00 PM EST</strong></p>
-            <p class="release-live" id="releaseLive" aria-live="polite">Opening Scout…</p>
-            <div class="release-uptime" id="releaseUptime" role="timer" aria-live="off" aria-label="Time since Scout launched">
-                <div class="release-unit"><span class="release-value" id="uptimeDays">00</span><span class="release-unit-label">Days</span></div>
-                <div class="release-unit"><span class="release-value" id="uptimeHours">00</span><span class="release-unit-label">Hours</span></div>
-                <div class="release-unit"><span class="release-value" id="uptimeMinutes">00</span><span class="release-unit-label">Minutes</span></div>
-                <div class="release-unit"><span class="release-value" id="uptimeSeconds">00</span><span class="release-unit-label">Seconds</span></div>
-            </div>
+            <p class="release-eyebrow">NOW LIVE</p>
+            <h1 class="release-title" id="releaseTitle">Scout is live</h1>
+            <p class="release-subtitle">A new place to explore is ready. Click below to open Scout.</p>
+            <button class="release-view-button" id="releaseViewButton" type="button">Click to view</button>
         </div>
     </section>
     <noscript>
@@ -7736,6 +7726,9 @@
                                 <button class="scout-hub-card" data-hub-action="transfer"><i class="fas fa-right-left"></i><span>Move data between devices</span></button>
                                 <button class="scout-hub-card" data-hub-action="privacy"><i class="fas fa-shield-halved"></i><span>Privacy controls</span></button>
                                 <button class="scout-hub-card" data-hub-action="translate"><i class="fas fa-language"></i><span>Translation settings</span></button>
+                                <button class="scout-hub-card" data-hub-action="status"><i class="fas fa-heart-pulse"></i><span>Service status</span></button>
+                                <button class="scout-hub-card" data-hub-action="roadmap"><i class="fas fa-map"></i><span>Public roadmap</span></button>
+                                <button class="scout-hub-card" data-hub-action="presets"><i class="fas fa-sliders"></i><span>Share settings preset</span></button>
                             </div>
                         </section>
                     </div>
@@ -30287,9 +30280,24 @@ _VIEWER_DL_JS +
             const WORKSPACE_META_KEY = '__scout_workspaces_v1';
             const SAVED_SESSIONS_KEY = 'gust:saved-sessions:v1';
             const BACKUP_SCHEMA = 'scout-local-backup';
+            const PRESET_SCHEMA = 'scout-settings-preset';
+            const PRESET_SETTING_KEYS = new Set([
+                'gust:engine:v1', 'gust:block:v1', 'gust:tabcache:v1', 'gust:panelwidthpersist:v1',
+                'gust:fontsize:v1', 'gust:language:v1', 'gust:panelsleft', 'gust:bookmarksbar:v1',
+                'gust:showclock:v1', 'gust:24hrclock:v1', 'gust:spellcheck:v1',
+                'gust:idlethreads:v1', 'gust:activethreads:v1', 'gust:wisp:poolmode:v1',
+                'gust:media:pdf:v1', 'gust:media:img:v1', 'gust:media:video:v1',
+                'gust:media:audio:v1', 'gust:media:text:v1', 'gust:media:download:v1',
+                'gust:media:range:v1', 'gust:media:headers:v1', 'gust:webrtc:block:v1',
+                'gust:favicon-proxy:v1', 'gust:fallback:enabled', 'gust:fallback:5xx',
+                'gust:fallback:timeout', 'gust:fallback:dns', 'gust:shortcutsEnabled',
+                'gust:autoFullscreen', 'gust:gx:lowpower'
+            ]);
             const RELEASES_API = 'https://api.github.com/repos/nautilus-os/GUST/releases?per_page=5';
             const RELEASES_PAGE = 'https://github.com/nautilus-os/GUST/releases';
             const COMMITS_API = 'https://api.github.com/repos/nautilus-os/GUST/commits?per_page=5';
+            const ROADMAP_API = 'https://api.github.com/repos/nautilus-os/GUST/issues?state=all&labels=enhancement&per_page=100';
+            const ROADMAP_PAGE = 'https://github.com/nautilus-os/GUST/issues?q=is%3Aissue+label%3Aenhancement';
             const HOSTED_APP_URL = 'https://gust-browser.vercel.app';
             const STANDALONE_APP_URL = 'https://cdn.jsdelivr.net/gh/nautilus-os/GUST@latest/svg/site.svg';
             let releaseRequestId = 0;
@@ -30330,12 +30338,15 @@ _VIEWER_DL_JS +
                     workspaces: 'Workspaces',
                     sessions: 'Saved tab groups',
                     transfer: 'Move data between devices',
-                    privacy: 'Privacy controls'
+                    privacy: 'Privacy controls',
+                    status: 'Service status',
+                    roadmap: 'Public roadmap',
+                    presets: 'Share settings preset'
                 };
                 scoutHubTitle.textContent = labels[action] || 'Explore Scout';
                 scoutHubContent.replaceChildren();
                 scoutHubModal.style.display = 'flex';
-                if (action !== 'updates' && action !== 'downloads') releaseRequestId++;
+                releaseRequestId++;
 
                 if (action === 'updates' || action === 'downloads') {
                     renderReleasePanel(action);
@@ -30349,6 +30360,12 @@ _VIEWER_DL_JS +
                     renderTransferPanel();
                 } else if (action === 'privacy') {
                     renderPrivacyPanel();
+                } else if (action === 'status') {
+                    renderServiceStatus();
+                } else if (action === 'roadmap') {
+                    renderPublicRoadmap();
+                } else if (action === 'presets') {
+                    renderPresetsPanel();
                 }
             }
 
@@ -30498,10 +30515,16 @@ _VIEWER_DL_JS +
                         const commit = item && item.commit;
                         if (!commit) continue;
                         const row = hubElement('div', '', 'scout-hub-row');
-                        const details = hubElement('div');
-                        details.appendChild(hubElement('div', (commit.message || 'Update').split('\n')[0], 'scout-hub-row-title'));
+                        const message = (commit.message || 'Update').split('\n')[0];
+                        const details = hubElement('div', '', 'scout-change-summary');
+                        const emoji = hubElement('span', getCommitEmoji(message), 'scout-change-emoji');
+                        emoji.setAttribute('aria-hidden', 'true');
+                        details.appendChild(emoji);
+                        const summary = hubElement('div');
+                        summary.appendChild(hubElement('div', message, 'scout-hub-row-title'));
                         const date = commit.author && commit.author.date ? new Date(commit.author.date) : null;
-                        if (date && !Number.isNaN(date.getTime())) details.appendChild(hubElement('div', date.toLocaleDateString()));
+                        if (date && !Number.isNaN(date.getTime())) summary.appendChild(hubElement('div', date.toLocaleDateString()));
+                        details.appendChild(summary);
                         row.appendChild(details);
                         let commitUrl;
                         try { commitUrl = new URL(item.html_url); } catch { commitUrl = null; }
@@ -30523,6 +30546,18 @@ _VIEWER_DL_JS +
                     link.rel = 'noopener noreferrer';
                     list.appendChild(link);
                 }
+            }
+
+            function getCommitEmoji(message) {
+                const text = message.toLowerCase();
+                if (/security|vulnerab|privacy/.test(text)) return '🛡️';
+                if (/\b(fix|bug|error|crash|repair)\b/.test(text)) return '🐛';
+                if (/\b(feat|feature|add|introduc|implement)\b/.test(text)) return '✨';
+                if (/performance|optimi[sz]|speed|faster/.test(text)) return '⚡';
+                if (/\b(ui|design|style|visual|theme)\b/.test(text)) return '🎨';
+                if (/docs|document|readme|credits/.test(text)) return '📝';
+                if (/release|deploy|publish/.test(text)) return '🚀';
+                return '🛠️';
             }
 
             function renderHelpPanel() {
@@ -30913,6 +30948,280 @@ _VIEWER_DL_JS +
                 scoutHubContent.appendChild(actions);
             }
 
+            function renderServiceStatus() {
+                const requestId = ++releaseRequestId;
+                scoutHubContent.appendChild(hubElement('p', 'These checks run from this browser. The hosted check confirms the site responds but may not reveal its HTTP status; the WISP check only tests whether its WebSocket handshake succeeds, not whether proxy browsing works.'));
+                const checks = hubElement('div');
+                scoutHubContent.appendChild(checks);
+                const hostedRow = makeStatusRow('Hosted Scout');
+                const wispRow = makeStatusRow('Configured WISP');
+                checks.append(hostedRow, wispRow);
+                const actions = hubElement('div', '', 'scout-hub-actions');
+                const refresh = hubButton('Check again', () => {
+                    scoutHubContent.replaceChildren();
+                    renderServiceStatus();
+                }, true);
+                refresh.disabled = true;
+                actions.appendChild(refresh);
+                const hostedLink = hubElement('a', 'Open hosted Scout');
+                hostedLink.href = HOSTED_APP_URL;
+                hostedLink.target = '_blank';
+                hostedLink.rel = 'noopener noreferrer';
+                hostedLink.className = 'scout-hub-action';
+                actions.appendChild(hostedLink);
+                scoutHubContent.appendChild(actions);
+                Promise.all([
+                    checkHostedService(hostedRow, requestId),
+                    checkConfiguredWisp(wispRow, requestId)
+                ]).finally(() => {
+                    if (requestId === releaseRequestId) refresh.disabled = false;
+                });
+            }
+
+            function makeStatusRow(label) {
+                const row = hubElement('section', '', 'scout-roadmap-item');
+                row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;';
+                row.appendChild(hubElement('strong', label));
+                const indicator = hubElement('span', 'Checking…', 'scout-status-indicator');
+                const dot = hubElement('span', '', 'scout-status-dot warn');
+                indicator.prepend(dot);
+                row.appendChild(indicator);
+                const detail = hubElement('div', '', 'scout-roadmap-meta');
+                detail.style.gridColumn = '1 / -1';
+                row.appendChild(detail);
+                return row;
+            }
+
+            function setStatusRow(row, state, detailText) {
+                const dot = row.querySelector('.scout-status-dot');
+                const indicator = row.querySelector('.scout-status-indicator');
+                if (!dot || !indicator) return;
+                dot.className = `scout-status-dot ${state}`;
+                indicator.lastChild.textContent = state === 'ok' ? 'Responding' : state === 'warn' ? 'Limited check' : 'Not reached';
+                row.querySelector('.scout-roadmap-meta').textContent = `${detailText} · Checked ${new Date().toLocaleTimeString()}`;
+            }
+
+            async function checkHostedService(row, requestId) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 8000);
+                try {
+                    const response = await fetch(HOSTED_APP_URL, {
+                        method: 'HEAD',
+                        mode: 'no-cors',
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    if (requestId !== releaseRequestId) return;
+                    if (response.type === 'opaque') {
+                        setStatusRow(row, 'ok', 'The host responded; this browser cannot read its cross-origin status code.');
+                    } else if (response.ok) {
+                        setStatusRow(row, 'ok', `HTTP ${response.status}`);
+                    } else {
+                        setStatusRow(row, 'err', `The host returned HTTP ${response.status}.`);
+                    }
+                } catch (error) {
+                    if (requestId !== releaseRequestId) return;
+                    setStatusRow(row, 'err', error.name === 'AbortError'
+                        ? 'Timed out after 8 seconds; this does not establish a global outage.'
+                        : 'Could not reach the hosted site from this browser.');
+                } finally {
+                    clearTimeout(timer);
+                }
+            }
+
+            async function checkConfiguredWisp(row, requestId) {
+                const latency = await probeWispLatency(WISP, 7000);
+                if (requestId !== releaseRequestId) return;
+                if (latency === null) {
+                    setStatusRow(row, 'err', `No WebSocket handshake from this device to ${WISP || 'the configured relay'}; proxy traffic was not tested.`);
+                } else {
+                    setStatusRow(row, 'ok', `WebSocket handshake in ${Math.round(latency)} ms; proxy traffic was not tested.`);
+                }
+            }
+
+            function renderPublicRoadmap() {
+                const requestId = ++releaseRequestId;
+                scoutHubContent.appendChild(hubElement('p', 'This list reflects public GitHub enhancement issues, not promises or delivery dates. Open issues are proposals; “under review” means the issue has GitHub’s triaged label. Completed means GitHub marks the issue completed.'));
+                const list = hubElement('div');
+                scoutHubContent.appendChild(list);
+                const actions = hubElement('div', '', 'scout-hub-actions');
+                const issuesLink = hubElement('a', 'View all public enhancement issues');
+                issuesLink.href = ROADMAP_PAGE;
+                issuesLink.target = '_blank';
+                issuesLink.rel = 'noopener noreferrer';
+                issuesLink.className = 'scout-hub-action';
+                actions.appendChild(issuesLink);
+                const refresh = hubButton('Refresh', () => {
+                    scoutHubContent.replaceChildren();
+                    renderPublicRoadmap();
+                });
+                actions.appendChild(refresh);
+                scoutHubContent.appendChild(actions);
+                const loading = hubElement('div', 'Loading public issues from GitHub…', 'scout-hub-status');
+                loading.setAttribute('role', 'status');
+                list.appendChild(loading);
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 10000);
+                fetch(ROADMAP_API, {
+                    headers: { Accept: 'application/vnd.github+json' },
+                    signal: controller.signal
+                }).then(response => {
+                    if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+                    return response.json();
+                }).then(issues => {
+                    if (requestId !== releaseRequestId) return;
+                    if (!Array.isArray(issues)) throw new Error('Unexpected GitHub response');
+                    const enhancements = issues.filter(issue => issue && !issue.pull_request &&
+                        Number.isInteger(issue.number) && typeof issue.title === 'string');
+                    list.replaceChildren();
+                    const groups = [
+                        ['Under review', enhancements.filter(issue => issue.state === 'open' &&
+                            Array.isArray(issue.labels) && issue.labels.some(label => label.name === 'triaged'))],
+                        ['Open proposals', enhancements.filter(issue => issue.state === 'open' &&
+                            !(Array.isArray(issue.labels) && issue.labels.some(label => label.name === 'triaged')))],
+                        ['Completed', enhancements.filter(issue => issue.state === 'closed' && issue.state_reason === 'completed')],
+                        ['Closed (not marked completed)', enhancements.filter(issue => issue.state === 'closed' && issue.state_reason !== 'completed')]
+                    ];
+                    for (const [headingText, items] of groups) {
+                        if (!items.length) continue;
+                        list.appendChild(hubElement('h3', `${headingText} (${items.length})`, 'scout-roadmap-section'));
+                        for (const issue of items) {
+                            const item = hubElement('article', '', 'scout-roadmap-item');
+                            let href = `${ROADMAP_PAGE}&issue=${issue.number}`;
+                            try {
+                                const parsed = new URL(issue.html_url);
+                                if (parsed.hostname === 'github.com' && parsed.pathname.startsWith('/nautilus-os/GUST/issues/')) href = parsed.href;
+                            } catch (_) { }
+                            const title = hubElement('a', `#${issue.number} ${issue.title}`);
+                            title.href = href;
+                            title.target = '_blank';
+                            title.rel = 'noopener noreferrer';
+                            item.appendChild(title);
+                            item.appendChild(hubElement('div',
+                                `${issue.comments || 0} comments · Updated ${issue.updated_at ? new Date(issue.updated_at).toLocaleDateString() : 'date unavailable'}`,
+                                'scout-roadmap-meta'));
+                            list.appendChild(item);
+                        }
+                    }
+                    if (!enhancements.length) list.appendChild(hubElement('p', 'No public enhancement issues were returned.'));
+                    list.appendChild(hubElement('p', 'Showing up to the latest 100 public enhancement issues. GitHub has the full list.'));
+                }).catch(error => {
+                    if (requestId !== releaseRequestId) return;
+                    list.replaceChildren(hubElement('p', `The public roadmap could not be loaded: ${error.message}. Use the GitHub link above to view issues directly.`));
+                }).finally(() => clearTimeout(timer));
+            }
+
+            function renderPresetsPanel() {
+                scoutHubContent.appendChild(hubElement('p', 'Export a small, shareable file containing only allowlisted appearance, language, and behavior preferences. It excludes bookmarks, browsing history, tabs, workspaces, relay URLs, credentials, and cache. Import merges supported preferences into this workspace and leaves everything else untouched.'));
+                const nameLabel = hubElement('label', 'Preset name');
+                nameLabel.style.cssText = 'display:block;margin:12px 0 5px;color:var(--tx2);font-size:12px;';
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.maxLength = 48;
+                nameInput.value = 'My Scout setup';
+                nameInput.className = 'scout-hub-input';
+                nameInput.setAttribute('aria-label', 'Preset name');
+                nameLabel.appendChild(nameInput);
+                scoutHubContent.appendChild(nameLabel);
+                const actions = hubElement('div', '', 'scout-hub-actions');
+                actions.appendChild(hubButton('Export settings preset', () => exportSettingsPreset(nameInput.value), true));
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = 'application/json,.json';
+                fileInput.hidden = true;
+                fileInput.addEventListener('change', () => importSettingsPreset(fileInput.files && fileInput.files[0]));
+                actions.appendChild(hubButton('Import preset file', () => fileInput.click()));
+                actions.appendChild(fileInput);
+                scoutHubContent.appendChild(actions);
+                hubStatus(scoutHubContent, 'Preset files are local JSON. Review the settings before importing a file from someone else.');
+            }
+
+            function exportSettingsPreset(name) {
+                const cleanName = String(name || '').trim().slice(0, 48);
+                if (!cleanName) {
+                    hubStatus(scoutHubContent, 'Enter a name for this preset.');
+                    return;
+                }
+                try {
+                    const settings = {};
+                    for (const key of PRESET_SETTING_KEYS) {
+                        const value = ls.getItem(key);
+                        if (value !== null && isValidPresetSetting(key, value)) settings[key] = value;
+                    }
+                    const preset = {
+                        schema: PRESET_SCHEMA,
+                        version: 1,
+                        name: cleanName,
+                        exportedAt: new Date().toISOString(),
+                        settings
+                    };
+                    const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' }));
+                    const link = document.createElement('a');
+                    const filename = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'scout-preset';
+                    link.href = blobUrl;
+                    link.download = `scout-preset-${filename}.json`;
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                    hubStatus(scoutHubContent, `Preset “${cleanName}” exported with ${Object.keys(settings).length} supported preferences.`);
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Preset export failed: ${error.message}`);
+                }
+            }
+
+            function isValidPresetSetting(key, value) {
+                if (!PRESET_SETTING_KEYS.has(key) || typeof value !== 'string' || value.length > 128) return false;
+                if (key === 'gust:engine:v1') return ['brave', 'ddg', 'bing', 'google'].includes(value);
+                if (key === 'gust:language:v1') return value === '' || /^[a-zA-Z]{2,3}$/.test(value);
+                if (key === 'gust:fontsize:v1') return /^\d{1,2}$/.test(value) && Number(value) >= 0 && Number(value) <= 10;
+                if (key === 'gust:idlethreads:v1' || key === 'gust:activethreads:v1') {
+                    return /^\d{1,2}$/.test(value) && Number(value) >= 1 && Number(value) <= 18;
+                }
+                if (['gust:block:v1', 'gust:tabcache:v1', 'gust:panelwidthpersist:v1',
+                    'gust:bookmarksbar:v1', 'gust:showclock:v1', 'gust:24hrclock:v1',
+                    'gust:spellcheck:v1'].includes(key)) return ['true', 'false'].includes(value);
+                return ['0', '1'].includes(value);
+            }
+
+            async function importSettingsPreset(file) {
+                if (!file) return;
+                if (file.size > 256 * 1024) {
+                    hubStatus(scoutHubContent, 'Preset file is too large (maximum 256 KB).');
+                    return;
+                }
+                try {
+                    const preset = JSON.parse(await file.text());
+                    if (!preset || preset.schema !== PRESET_SCHEMA || preset.version !== 1 ||
+                        typeof preset.name !== 'string' || preset.name.length > 48 ||
+                        !preset.settings || typeof preset.settings !== 'object' || Array.isArray(preset.settings)) {
+                        throw new Error('This is not a supported Scout settings preset.');
+                    }
+                    const entries = Object.entries(preset.settings);
+                    if (!entries.length || entries.length > PRESET_SETTING_KEYS.size ||
+                        entries.some(([key, value]) => !isValidPresetSetting(key, value))) {
+                        throw new Error('The preset contains unsupported settings or invalid values.');
+                    }
+                    const summary = entries.map(([key, value]) =>
+                        `${key.replace(/^gust:/, '').replace(/:v1$/, '').replace(/:/g, ' ')}: ${value || 'system default'}`);
+                    if (!confirm(`Import “${preset.name}” into this workspace?\n\nIt will merge ${entries.length} supported preferences:\n• ${summary.join('\n• ')}\n\nOther data will not be changed. Scout will reload.`)) return;
+                    const previous = new Map(entries.map(([key]) => [key, ls.getItem(key)]));
+                    try {
+                        for (const [key, value] of entries) {
+                            ls.setItem(key, value);
+                            if (ls.getItem(key) !== value) throw new Error('Browser storage did not save the preset.');
+                        }
+                    } catch (error) {
+                        for (const [key, value] of previous) {
+                            if (value === null) ls.removeItem(key);
+                            else ls.setItem(key, value);
+                        }
+                        throw error;
+                    }
+                    location.reload();
+                } catch (error) {
+                    hubStatus(scoutHubContent, `Preset import failed: ${error.message}`);
+                }
+            }
+
             function resetCurrentWorkspace() {
                 if (!confirm('Reset this workspace? This clears its settings, bookmarks, tabs, history, and saved tab groups. Other workspaces stay unchanged.')) return;
                 try {
@@ -31075,45 +31384,45 @@ _VIEWER_DL_JS +
 
     <script>
         (() => {
-            const RELEASE_COUNTDOWN_ENABLED = true;
             const overlay = document.getElementById('releaseCountdown');
             if (!overlay) return;
-            if (!RELEASE_COUNTDOWN_ENABLED) {
+            const removeAt = Date.UTC(2026, 10, 11, 5, 0, 0);
+            if (Date.now() >= removeAt) {
                 overlay.remove();
                 return;
             }
 
-            const releaseAt = Date.UTC(2026, 10, 10, 18, 0, 0);
-            const previewKey = 'scout:release-countdown:preview:v1';
-            const daysEl = document.getElementById('releaseDays');
-            const hoursEl = document.getElementById('releaseHours');
-            const minutesEl = document.getElementById('releaseMinutes');
-            const secondsEl = document.getElementById('releaseSeconds');
-            const uptimeDaysEl = document.getElementById('uptimeDays');
-            const uptimeHoursEl = document.getElementById('uptimeHours');
-            const uptimeMinutesEl = document.getElementById('uptimeMinutes');
-            const uptimeSecondsEl = document.getElementById('uptimeSeconds');
-            const title = document.getElementById('releaseTitle');
-            const eyebrow = document.getElementById('releaseEyebrow');
-            const liveMessage = document.getElementById('releaseLive');
             const canvas = document.getElementById('releaseFireworks');
+            const button = document.getElementById('releaseViewButton');
             const context = canvas.getContext('2d');
             const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            let timer = null;
             let animationFrame = 0;
-            let finishTimer = null;
+            let burstTimer = null;
+            let removeTimer = null;
             let particles = [];
-            let celebrationStarted = false;
             let canvasScale = 1;
 
-            try {
-                if (localStorage.getItem(previewKey) === '1') {
-                    overlay.remove();
-                    return;
-                }
-            } catch (_) {}
+            function stopEffects() {
+                if (burstTimer !== null) clearInterval(burstTimer);
+                if (removeTimer !== null) clearTimeout(removeTimer);
+                cancelAnimationFrame(animationFrame);
+                window.removeEventListener('resize', resizeCanvas);
+            }
+
+            function removeOverlayImmediately() {
+                stopEffects();
+                overlay.remove();
+            }
+
+            function revealScout() {
+                if (!overlay.isConnected) return;
+                stopEffects();
+                overlay.classList.add('is-exiting');
+                window.setTimeout(() => overlay.remove(), 800);
+            }
 
             function resizeCanvas() {
+                if (!context) return;
                 canvasScale = Math.min(window.devicePixelRatio || 1, 1.5);
                 canvas.width = Math.round(window.innerWidth * canvasScale);
                 canvas.height = Math.round(window.innerHeight * canvasScale);
@@ -31139,7 +31448,7 @@ _VIEWER_DL_JS +
             }
 
             function drawFireworks() {
-                if (!overlay.isConnected || !overlay.classList.contains('is-live')) return;
+                if (!overlay.isConnected || reducedMotion || !context) return;
                 const width = window.innerWidth;
                 const height = window.innerHeight;
                 context.fillStyle = 'rgba(7, 11, 18, 0.2)';
@@ -31165,75 +31474,24 @@ _VIEWER_DL_JS +
                 animationFrame = requestAnimationFrame(drawFireworks);
             }
 
-            function finishCelebration() {
-                if (!overlay.isConnected) return;
-                cancelAnimationFrame(animationFrame);
-                context.clearRect(0, 0, window.innerWidth, window.innerHeight);
-                overlay.classList.add('is-uptime');
-                title.textContent = 'Scout has been live for';
-                eyebrow.textContent = 'NOW LIVE';
-                updateUptime();
-                timer = setInterval(updateUptime, 1000);
+            function burstAtRandomPosition() {
+                if (!overlay.isConnected || !context) return;
+                burst(
+                    window.innerWidth * (0.18 + Math.random() * 0.64),
+                    window.innerHeight * (0.18 + Math.random() * 0.5)
+                );
             }
 
-            function updateUptime() {
-                const totalSeconds = Math.floor(Math.max(0, Date.now() - releaseAt) / 1000);
-                const days = Math.floor(totalSeconds / 86400);
-                const hours = Math.floor((totalSeconds % 86400) / 3600);
-                const minutes = Math.floor((totalSeconds % 3600) / 60);
-                const seconds = totalSeconds % 60;
-                uptimeDaysEl.textContent = String(days).padStart(2, '0');
-                uptimeHoursEl.textContent = String(hours).padStart(2, '0');
-                uptimeMinutesEl.textContent = String(minutes).padStart(2, '0');
-                uptimeSecondsEl.textContent = String(seconds).padStart(2, '0');
-            }
-
-            function startCelebration() {
-                if (celebrationStarted) return;
-                celebrationStarted = true;
-                if (timer) clearInterval(timer);
-                title.textContent = 'Scout is live';
-                eyebrow.textContent = 'THE LAUNCH STARTS NOW';
-                liveMessage.textContent = 'Welcome to Scout.';
-                overlay.classList.add('is-live');
-                if (reducedMotion) {
-                    finishTimer = setTimeout(finishCelebration, 1400);
-                    return;
-                }
+            overlay.classList.add('is-live');
+            button.addEventListener('click', revealScout);
+            removeTimer = window.setTimeout(removeOverlayImmediately, removeAt - Date.now());
+            if (!reducedMotion && context) {
                 resizeCanvas();
-                const launchBursts = [
-                    [0.23, 0.38, 100], [0.77, 0.32, 430], [0.5, 0.25, 860],
-                    [0.34, 0.48, 1320], [0.67, 0.44, 1780], [0.5, 0.35, 2290]
-                ];
-                for (const [x, y, delay] of launchBursts) {
-                    setTimeout(() => {
-                        if (overlay.isConnected) burst(window.innerWidth * x, window.innerHeight * y);
-                    }, delay);
-                }
+                burstAtRandomPosition();
+                burstTimer = window.setInterval(burstAtRandomPosition, 1800);
                 animationFrame = requestAnimationFrame(drawFireworks);
-                finishTimer = setTimeout(finishCelebration, 5000);
+                window.addEventListener('resize', resizeCanvas, { passive: true });
             }
-
-            function updateCountdown() {
-                const totalSeconds = Math.ceil(Math.max(0, releaseAt - Date.now()) / 1000);
-                if (totalSeconds <= 0) {
-                    if (timer) { clearInterval(timer); timer = null; }
-                    startCelebration();
-                    return;
-                }
-                const days = Math.floor(totalSeconds / 86400);
-                const hours = Math.floor((totalSeconds % 86400) / 3600);
-                const minutes = Math.floor((totalSeconds % 3600) / 60);
-                const seconds = totalSeconds % 60;
-                daysEl.textContent = String(days).padStart(2, '0');
-                hoursEl.textContent = String(hours).padStart(2, '0');
-                minutesEl.textContent = String(minutes).padStart(2, '0');
-                secondsEl.textContent = String(seconds).padStart(2, '0');
-            }
-
-            window.addEventListener('resize', () => { if (celebrationStarted) resizeCanvas(); }, { passive: true });
-            updateCountdown();
-            if (!celebrationStarted) timer = setInterval(updateCountdown, 1000);
         })();
     </script>
 
