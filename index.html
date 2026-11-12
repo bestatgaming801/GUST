@@ -8128,7 +8128,7 @@
                                         <div class="settings-switch-row">
                                             <div>
                                                 <div class="settings-switch-label">Enable pool round-robin</div>
-                                                <div class="settings-hint">Rotate across a benchmarked pool of public WISP servers for faster loads. Servers that fail for a site are skipped for that site; faster servers are picked more often.</div>
+                                                <div class="settings-hint">Test relays against the selected search engine from this device. Failed checks are shown per relay; faster responding relays are picked more often.</div>
                                             </div>
                                             <div class="settings-switch" id="settingsPoolModeSwitch">
                                                 <div class="settings-switch-track"><div class="settings-switch-thumb"></div></div>
@@ -12672,8 +12672,8 @@ window._libcurlReady = true;
             // The pool is consulted when Settings → Connection → "Enable pool round-robin"
             // is on. WISP (above) stays the sticky single-server config used
             // everywhere else.
-            // These defaults are only considered healthy after a real HTTPS request
-            // succeeds through the WISP tunnel; a WebSocket upgrade alone is insufficient.
+            // These defaults are only considered healthy after the selected search
+            // engine returns a successful HTTP response through the WISP tunnel.
             const WISP_POOL_DEFAULTS = [...new Set([
                 "wss://definitelyscience.com/wisp/",   // 111ms
                 "wss://mages.io/wisp/",                // 114ms
@@ -12704,30 +12704,40 @@ window._libcurlReady = true;
             // off value, so a fresh install gets pool resilience without opting in.
             function poolModeOn() { try { return ls.getItem('gust:wisp:poolmode:v1') !== '0'; } catch { return true; } }
             let wispPoolCheck = { completed: 0, tested: 0, healthy: 0, total: 0, finished: false };
+            const SEARCH_ENGINE_NAMES = { brave: 'Brave Search', ddg: 'DuckDuckGo', google: 'Google', bing: 'Bing' };
+            function getSearchProbeTarget() {
+                const engine = selectedEngine || 'ddg';
+                const base = SEARCH_ENGINES[engine] || SEARCH_ENGINES.ddg;
+                return {
+                    engine,
+                    url: base + encodeURIComponent('GUST relay connectivity')
+                };
+            }
             function updateHomeServiceStatus() {
                 const status = document.getElementById('ntServiceStatus');
                 if (!status) return;
                 const dot = status.querySelector('.nt-service-status-dot');
                 const label = status.querySelector('.nt-service-status-label');
+                const engine = SEARCH_ENGINE_NAMES[wispPoolCheck.engine] || 'the selected search engine';
                 let state = 'checking';
                 let message = 'Checking service connectivity…';
                 if (wispPoolCheck.healthy > 0) {
                     if (wispPoolCheck.finished && wispPoolCheck.tested < wispPoolCheck.total) {
                         state = 'degraded';
-                        message = `Connection available from this device · ${wispPoolCheck.healthy} relays working; ${wispPoolCheck.deferred} checks deferred`;
+                        message = `${engine} responded through ${wispPoolCheck.healthy} relays; ${wispPoolCheck.deferred} checks deferred`;
                     } else if (wispPoolCheck.finished && wispPoolCheck.healthy < wispPoolCheck.total) {
                         state = 'degraded';
-                        message = `Relays partially available from this device · ${wispPoolCheck.healthy} of ${wispPoolCheck.total} reachable`;
+                        message = `${engine} responded through ${wispPoolCheck.healthy} of ${wispPoolCheck.total} relays`;
                     } else if (wispPoolCheck.finished) {
                         state = 'online';
-                        message = `All ${wispPoolCheck.total} relays reachable from this device`;
+                        message = `${engine} responded through all ${wispPoolCheck.total} relays`;
                     } else {
                         state = 'online';
-                        message = `${wispPoolCheck.healthy} relay${wispPoolCheck.healthy === 1 ? '' : 's'} reachable from this device`;
+                        message = `${engine} responded through ${wispPoolCheck.healthy} relay${wispPoolCheck.healthy === 1 ? '' : 's'}`;
                     }
                 } else if (wispPoolCheck.finished && wispPoolCheck.tested === wispPoolCheck.total && wispPoolCheck.total > 0) {
                     state = 'down';
-                    message = `No relays reachable from this device/network · search and browsing may fail`;
+                    message = `No relay could load ${engine} from this device/network`;
                 } else if (wispPoolCheck.finished && wispPoolCheck.tested < wispPoolCheck.total) {
                     state = 'degraded';
                     message = wispPoolCheck.tested === 0
@@ -12746,7 +12756,7 @@ window._libcurlReady = true;
                 if (dot) dot.className = `nt-service-status-dot ${state}`;
                 if (label) label.textContent = message;
             }
-            function probeWispLatency(url, ms = 2500) {
+            function probeWispLatency(url, targetUrl, ms = 2500) {
                 return withWispSwapLock(async () => {
                     _queueDispatchPaused = true;
                     let probeCurl;
@@ -12763,14 +12773,38 @@ window._libcurlReady = true;
                         const timeout = setTimeout(() => controller.abort(), ms);
                         try {
                             const startedAt = performance.now();
-                            const response = await probeCurl.fetch('https://example.com/', {
-                                method: 'GET',
-                                redirect: 'manual',
-                                signal: controller.signal
-                            });
-                            await response.arrayBuffer();
-                            if (response.status < 100 || response.status >= 600) {
-                                return { latency: null, deferred: false, error: `Unexpected HTTP status ${response.status}` };
+                            const headers = {
+                                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                'Accept-Language': 'en-US,en;q=0.9',
+                                'User-Agent': (() => {
+                                    try { return ls.getItem('gust:ua:request:v1') || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.7778.96 Safari/537.36'; }
+                                    catch { return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.7778.96 Safari/537.36'; }
+                                })()
+                            };
+                            let requestUrl = targetUrl;
+                            let response;
+                            for (let redirects = 0; redirects <= 10; redirects++) {
+                                response = await probeCurl.fetch(requestUrl, {
+                                    method: 'GET',
+                                    headers,
+                                    redirect: 'manual',
+                                    signal: controller.signal
+                                });
+                                const location = response.status >= 300 && response.status < 400
+                                    ? response.headers?.get?.('location')
+                                    : null;
+                                if (!location) break;
+                                if (redirects === 10) {
+                                    return { latency: null, deferred: false, status: response.status, error: 'Search endpoint redirected too many times' };
+                                }
+                                requestUrl = new URL(location, requestUrl).href;
+                            }
+                            const body = await response.arrayBuffer();
+                            if (response.status < 200 || response.status >= 300) {
+                                return { latency: null, deferred: false, status: response.status, error: `Search endpoint returned HTTP ${response.status}` };
+                            }
+                            if (body.byteLength === 0) {
+                                return { latency: null, deferred: false, status: response.status, error: 'Search endpoint returned an empty page' };
                             }
                             return { latency: performance.now() - startedAt, deferred: false, status: response.status, error: '' };
                         } catch (error) {
@@ -12797,15 +12831,17 @@ window._libcurlReady = true;
                     }
                 });
             }
-            async function probeWispPoolServer(url, ms = 2500) {
-                const result = await probeWispLatency(url, ms);
+            async function probeWispPoolServer(url, target, ms = 2500) {
+                const result = await probeWispLatency(url, target.url, ms);
                 return {
                     latency: result.latency,
                     healthy: result.deferred ? null : result.latency !== null,
                     deferred: !!result.deferred,
                     samples: result.latency === null ? 0 : 1,
                     status: result.status ?? null,
-                    error: result.error || (result.deferred ? 'Check deferred while another request was active' : '')
+                    error: result.error || (result.deferred ? 'Check deferred while another request was active' : ''),
+                    engine: target.engine,
+                    targetUrl: target.url
                 };
             }
             let wispBenchmarking = false;
@@ -12818,7 +12854,8 @@ window._libcurlReady = true;
                 _wispBenchmarkPromise = (async () => {
                     try {
                         const pool = getWispPool();
-                        wispPoolCheck = { completed: 0, tested: 0, healthy: 0, deferred: 0, total: pool.length, finished: false };
+                        const searchTarget = getSearchProbeTarget();
+                        wispPoolCheck = { completed: 0, tested: 0, healthy: 0, deferred: 0, total: pool.length, finished: false, engine: searchTarget.engine };
                         for (const url of pool) delete wispHealth[url];
                         updateHomeServiceStatus();
                         if (typeof renderWispPoolList === 'function') renderWispPoolList();
@@ -12826,14 +12863,15 @@ window._libcurlReady = true;
                         let done = 0;
                         await Promise.all(pool.map(async url => {
                             try {
-                                const { latency, healthy, deferred, samples, status, error } = await probeWispPoolServer(url);
-                                wispHealth[url] = { latency, checkedAt: Date.now(), healthy, deferred, samples, status, error };
+                                const { latency, healthy, deferred, samples, status, error, engine, targetUrl } = await probeWispPoolServer(url, searchTarget);
+                                wispHealth[url] = { latency, checkedAt: Date.now(), healthy, deferred, samples, status, error, engine, targetUrl };
                                 if (healthy !== null) {
                                     wispPoolCheck.tested++;
                                     if (healthy) wispPoolCheck.healthy++;
+                                    else log(`Search check failed for ${escapeHtml(url.replace(/^wss?:\/\//, '').split('/')[0])} (${SEARCH_ENGINE_NAMES[engine] || engine}): ${escapeHtml(error || `HTTP ${status}`)}`, 'warn');
                                 } else wispPoolCheck.deferred++;
                             } catch (error) {
-                                wispHealth[url] = { latency: null, checkedAt: Date.now(), healthy: false, deferred: false, samples: 0, status: null, error: error.message || 'Tunnel test failed' };
+                                wispHealth[url] = { latency: null, checkedAt: Date.now(), healthy: false, deferred: false, samples: 0, status: null, error: error.message || 'Search check failed' };
                                 wispPoolCheck.tested++;
                                 log(`WISP benchmark failed for ${url}: ${error.message}`, 'err');
                             }
@@ -12866,7 +12904,7 @@ window._libcurlReady = true;
             function rememberFastestRelay() {
                 try { if (ls.getItem('gust:wisp:v1')) return; } catch {}
                 const ranked = getWispPool()
-                    .filter(u => wispHealth[u] && wispHealth[u].healthy && wispHealth[u].latency != null)
+                    .filter(u => wispHealth[u]?.engine === selectedEngine && wispHealth[u].healthy && wispHealth[u].latency != null)
                     .sort((a, b) => wispHealth[a].latency - wispHealth[b].latency);
                 if (ranked[0]) { try { ls.setItem('gust:wisp:fastest:v1', ranked[0]); } catch {} }
             }
@@ -12876,12 +12914,16 @@ window._libcurlReady = true;
                 const now = Date.now();
                 return getWispPool()
                     .filter(url => url !== exclude)
-                    .filter(url => wispHealth[url]?.healthy !== false)
+                    .filter(url => wispHealth[url]?.engine !== selectedEngine || wispHealth[url]?.healthy !== false)
                     .filter(url => {
                         const cd = wispHostCooldown.get(url + '|' + host);
                         return !cd || cd <= now;
                     })
-                    .sort((a, b) => (wispHealth[a]?.latency ?? 5000) - (wispHealth[b]?.latency ?? 5000));
+                    .sort((a, b) => {
+                        const aHealth = wispHealth[a]?.engine === selectedEngine ? wispHealth[a] : null;
+                        const bHealth = wispHealth[b]?.engine === selectedEngine ? wispHealth[b] : null;
+                        return (aHealth?.latency ?? 5000) - (bHealth?.latency ?? 5000);
+                    });
             }
             let wispRotationCursor = 0;
             // Weighted round-robin pick for a fresh (non-retry) navigation — faster
@@ -16669,7 +16711,9 @@ window._libcurlReady = true;
                     message.includes('curle_couldnt_resolve_host') ||
                     message.includes('curle_operation_timedout') ||
                     message.includes('could not connect') ||
+                    message.includes("couldn't connect") ||
                     message.includes('failed to connect') ||
+                    message.includes('connect failed') ||
                     message.includes('connection refused') ||
                     message.includes('could not resolve') ||
                     message.includes('name resolution') ||
@@ -21966,7 +22010,7 @@ _VIEWER_DL_JS +
                     const _isTimeout = _eMsg.includes('timeout') || _eMsg.includes('timed out');
                     const _is5xx     = _eMsg.includes('500') || _eMsg.includes('502') || _eMsg.includes('503') || _eMsg.includes('504') || _eMsg.includes('internal server');
 
-                    const _triggerMatches = (_isDns && _fbDns) || (_isTimeout && _fbTimeout) || (_is5xx && _fb5xx)
+                    const _triggerMatches = _isConnectionFailure || (_isDns && _fbDns) || (_isTimeout && _fbTimeout) || (_is5xx && _fb5xx)
                         || (!_isDns && !_isTimeout && !_is5xx); // generic errors always eligible
 
                     const _mainRetries = _isConnectionFailure ? 0 : (() => { try { return parseInt(ls.getItem('gust:main:retries'), 10) || 3; } catch { return 3; } })();
@@ -23775,14 +23819,15 @@ _VIEWER_DL_JS +
                 list.innerHTML = ranked.map(url => {
                     const h = wispHealth[url];
                     const host = url.replace(/^wss?:\/\//, '').split('/')[0];
+                    const engine = SEARCH_ENGINE_NAMES[h?.engine] || 'search endpoint';
                     let dotColor = 'var(--tx3)', label = 'not tested';
                     if (h) {
                         const suffix = h.samples > 1 ? ` avg×${h.samples}` : '';
                         if (h.healthy === null) { dotColor = 'var(--tx3)'; label = h.deferred ? 'check deferred' : 'not tested'; }
-                        else if (!h.healthy) { dotColor = 'var(--err)'; label = 'unreachable'; }
-                        else if (h.latency < 300) { dotColor = 'var(--ok)'; label = Math.round(h.latency) + 'ms' + suffix; }
-                        else if (h.latency < 800) { dotColor = 'var(--warn)'; label = Math.round(h.latency) + 'ms' + suffix; }
-                        else { dotColor = 'var(--warn)'; label = Math.round(h.latency) + 'ms (slow)' + suffix; }
+                        else if (!h.healthy) { dotColor = 'var(--err)'; label = `${engine} failed${h.status ? ` · HTTP ${h.status}` : ''}`; }
+                        else if (h.latency < 300) { dotColor = 'var(--ok)'; label = `${engine} ${Math.round(h.latency)}ms${suffix}`; }
+                        else if (h.latency < 800) { dotColor = 'var(--warn)'; label = `${engine} ${Math.round(h.latency)}ms${suffix}`; }
+                        else { dotColor = 'var(--warn)'; label = `${engine} ${Math.round(h.latency)}ms (slow)${suffix}`; }
                     }
                     return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;font-family:var(--mono);color:var(--tx2);padding:4px 6px;border-radius:4px;background:rgba(255,255,255,0.03);">
                         <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>
@@ -23797,7 +23842,7 @@ _VIEWER_DL_JS +
                     statusEl.textContent = wispBenchmarking
                         ? `Checking relays… ${wispPoolCheck.completed}/${pool.length}`
                         : tested
-                        ? `${tested}/${pool.length} tested${deferred ? ` · ${deferred} deferred` : ''}`
+                        ? `${tested}/${pool.length} ${SEARCH_ENGINE_NAMES[wispPoolCheck.engine] || 'search'} checks${deferred ? ` · ${deferred} deferred` : ''}`
                         : deferred ? `0/${pool.length} tested · checks deferred` : "Not benchmarked yet";
                 }
             }
@@ -28392,11 +28437,12 @@ _VIEWER_DL_JS +
                         box.innerHTML = ranked.map(url => {
                             const h = wispHealth[url];
                             const host = url.replace(/^wss?:\/\//, '').split('/')[0];
+                            const engine = SEARCH_ENGINE_NAMES[h?.engine] || 'search';
                             let dot = '#4a4556', label = 'not tested';
                             if (h) {
                                 if (h.healthy === null) { dot = '#4a4556'; label = h.deferred ? 'deferred' : 'not checked'; }
-                                else if (!h.healthy) { dot = 'var(--err)'; label = 'unreachable'; }
-                                else { dot = h.latency < 300 ? 'var(--ok)' : 'var(--warn)'; label = Math.round(h.latency) + 'ms' + (h.samples > 1 ? ' avg×' + h.samples : ''); }
+                                else if (!h.healthy) { dot = 'var(--err)'; label = engine + ' failed' + (h.status ? ' · HTTP ' + h.status : ''); }
+                                else { dot = h.latency < 300 ? 'var(--ok)' : 'var(--warn)'; label = engine + ' ' + Math.round(h.latency) + 'ms' + (h.samples > 1 ? ' avg×' + h.samples : ''); }
                             }
                             const isLive = url === WISP;
                             return '<div class="gxc-wisprow"><span class="gxc-wispdot" style="background:' + dot + '"></span>' +
@@ -31095,7 +31141,7 @@ _VIEWER_DL_JS +
 
             function renderServiceStatus() {
                 const requestId = ++releaseRequestId;
-                scoutHubContent.appendChild(hubElement('p', 'These checks run from this browser. The hosted check confirms the site responds but may not reveal its HTTP status; the WISP check only tests whether its WebSocket handshake succeeds, not whether proxy browsing works.'));
+                scoutHubContent.appendChild(hubElement('p', 'These checks run from this browser. The WISP check requests the selected search engine through the configured relay and reports its HTTP response; it does not guarantee that the full page or every resource will render.'));
                 const checks = hubElement('div');
                 scoutHubContent.appendChild(checks);
                 const hostedRow = makeStatusRow('Hosted Scout');
@@ -31175,12 +31221,21 @@ _VIEWER_DL_JS +
             }
 
             async function checkConfiguredWisp(row, requestId) {
-                const latency = await probeWispLatency(WISP, 7000);
-                if (requestId !== releaseRequestId) return;
-                if (latency === null) {
-                    setStatusRow(row, 'err', `No WebSocket handshake from this device to ${WISP || 'the configured relay'}; proxy traffic was not tested.`);
-                } else {
-                    setStatusRow(row, 'ok', `WebSocket handshake in ${Math.round(latency)} ms; proxy traffic was not tested.`);
+                const target = getSearchProbeTarget();
+                try {
+                    const result = await probeWispLatency(WISP, target.url, 7000);
+                    if (requestId !== releaseRequestId) return;
+                    const engine = SEARCH_ENGINE_NAMES[target.engine] || 'the selected search engine';
+                    if (result.deferred) {
+                        setStatusRow(row, 'warn', 'The check was deferred because other requests are active.');
+                    } else if (result.latency === null) {
+                        setStatusRow(row, 'err', `${engine} did not respond through the configured relay${result.error ? `: ${result.error}` : '.'}`);
+                    } else {
+                        setStatusRow(row, 'ok', `${engine} returned HTTP ${result.status} through the configured relay in ${Math.round(result.latency)} ms.`);
+                    }
+                } catch (error) {
+                    if (requestId !== releaseRequestId) return;
+                    setStatusRow(row, 'err', `Search check failed: ${error.message || error}`);
                 }
             }
 
