@@ -2566,6 +2566,82 @@
             color: #bbf7d0;
         }
 
+        .nt-country-proxy {
+            box-sizing: border-box;
+            width: min(700px, 100%);
+            margin-top: -8px;
+            padding: 12px;
+            border: 1px solid rgba(157, 229, 255, .22);
+            border-radius: 10px;
+            background: rgba(13, 15, 18, .72);
+            color: var(--tx2);
+            text-align: left;
+        }
+        .nt-country-proxy-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--tx);
+            font-size: 13px;
+        }
+        .nt-country-proxy-head i { margin-right: 5px; color: var(--ac); }
+        #ntProxyState { color: var(--tx3); font: 11px var(--mono); }
+        #ntProxyState[data-active="true"] { color: var(--ok); }
+        .nt-country-proxy p {
+            margin: 6px 0 10px;
+            color: var(--tx3);
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .nt-country-proxy-controls {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto auto;
+            gap: 7px;
+        }
+        .nt-country-proxy-controls select,
+        .nt-country-proxy-controls button {
+            box-sizing: border-box;
+            min-width: 0;
+            min-height: 36px;
+            border: 1px solid var(--bd);
+            border-radius: 7px;
+            background: rgba(20, 24, 30, .95);
+            color: var(--tx);
+            font: 12px var(--ui);
+        }
+        .nt-country-proxy-controls select { padding: 0 8px; }
+        .nt-country-proxy-controls button {
+            padding: 0 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .nt-country-proxy-controls button:hover:not(:disabled) {
+            border-color: var(--ac);
+            background: rgba(157, 229, 255, .12);
+        }
+        .nt-country-proxy-controls button:disabled,
+        .nt-country-proxy-controls select:disabled {
+            cursor: not-allowed;
+            opacity: .55;
+        }
+        .nt-country-proxy-controls #ntProxyToggle[data-active="true"] {
+            border-color: rgba(34, 197, 94, .45);
+            color: #bbf7d0;
+        }
+        #ntProxyStatus {
+            margin-top: 8px;
+            color: var(--tx3);
+            font-size: 10px;
+            line-height: 1.45;
+        }
+        .nt-country-proxy-source {
+            display: inline-block;
+            margin-top: 5px;
+            color: var(--ac);
+            font-size: 10px;
+        }
+
         .nt-search button {
             height: 44px;
             padding: 0 24px;
@@ -5343,6 +5419,11 @@
             #readerText { font-size: 16px; }
         }
 
+        @media (max-width: 600px) {
+            .nt-country-proxy-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+            .nt-country-proxy-controls button { width: 100%; }
+        }
+
         @media (max-width: 540px) {
             #settingsPage > div[style*="flex-direction:row"] { flex-direction: column !important; }
             #settingsPage .settings-sidebar {
@@ -7300,86 +7381,10 @@
             background: #070b14;
         }
 
-        .release-countdown {
-            position: fixed;
-            inset: 0;
-            z-index: 999998;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            padding: 28px;
-            color: #eef7ff;
-            background:
-                radial-gradient(ellipse at 50% 15%, rgba(32, 113, 154, .22), transparent 58%),
-                repeating-linear-gradient(90deg, transparent 0, transparent 79px, rgba(160, 215, 255, .035) 80px),
-                #070b12;
-            font-family: var(--ui, 'Space Grotesk', sans-serif);
-            opacity: 1;
-            transition: opacity .8s ease;
-        }
-
-        .release-countdown.is-exiting { opacity: 0; pointer-events: none; }
-        .release-countdown-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-        .release-content { position: relative; z-index: 1; width: min(760px, 100%); text-align: center; }
-        .release-kicker {
-            display: inline-flex;
-            align-items: center;
-            gap: 9px;
-            padding: 8px 12px;
-            border: 1px solid rgba(132, 212, 255, .3);
-            border-radius: 999px;
-            background: rgba(15, 28, 40, .72);
-            color: #9de5ff;
-            font-family: var(--mono, monospace);
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .release-kicker-dot { width: 7px; height: 7px; border-radius: 50%; background: #9de5ff; box-shadow: 0 0 12px #9de5ff; }
-        .release-eyebrow { margin: 34px 0 10px; color: #91a4b8; font-size: 12px; font-weight: 600; }
-        .release-title { margin: 0; color: #f4f9ff; font-size: 44px; font-weight: 700; line-height: 1.1; }
-        .release-subtitle { margin: 12px 0 26px; color: #9eafbf; font-size: 15px; line-height: 1.5; }
-        .release-countdown.is-live .release-eyebrow { color: #9de5ff; }
-        .release-countdown.is-live .release-title { text-shadow: 0 0 28px rgba(99, 211, 255, .3); }
-        .release-view-button {
-            min-height: 48px;
-            padding: 0 26px;
-            border: 1px solid rgba(132, 212, 255, .55);
-            border-radius: 8px;
-            background: #9de5ff;
-            color: #07111b;
-            font: inherit;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 0 24px rgba(99, 211, 255, .2);
-        }
-        .release-view-button:hover { background: #c1efff; }
-        .release-view-button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-
-        @media (max-width: 600px) {
-            .release-countdown { padding: 20px; }
-            .release-title { font-size: 32px; }
-            .release-subtitle { font-size: 14px; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .release-countdown { transition: none; }
-        }
-
     </style>
 </head>
 
 <body>
-    <section class="release-countdown" id="releaseCountdown" role="dialog" aria-modal="true" aria-labelledby="releaseTitle">
-        <canvas class="release-countdown-canvas" id="releaseFireworks" aria-hidden="true"></canvas>
-        <div class="release-content">
-            <div class="release-kicker"><span class="release-kicker-dot"></span>SCOUT / PUBLIC RELEASE</div>
-            <p class="release-eyebrow">NOW LIVE</p>
-            <h1 class="release-title" id="releaseTitle">Scout is live</h1>
-            <p class="release-subtitle">A new place to explore is ready. Click below to open Scout.</p>
-            <button class="release-view-button" id="releaseViewButton" type="button">Click to view</button>
-        </div>
-    </section>
     <noscript>
         <style>
             .gust-noscript {
@@ -7739,6 +7744,25 @@
                             <input id="ntSearch" placeholder="Search or enter address" autocomplete="off">
                             <button id="ntSearchBtn"><i class="fas fa-arrow-right"></i></button>
                         </div>
+                        <section class="nt-country-proxy" aria-labelledby="ntCountryProxyTitle">
+                            <div class="nt-country-proxy-head">
+                                <strong id="ntCountryProxyTitle"><i class="fas fa-globe"></i> Country proxy</strong>
+                                <span id="ntProxyState">Off</span>
+                            </div>
+                            <p>Use a public HTTP/SOCKS proxy for GUST page requests. Public proxies are untrusted and may log or alter traffic.</p>
+                            <div class="nt-country-proxy-controls">
+                                <select id="ntProxyCountry" aria-label="Proxy country" disabled>
+                                    <option value="">Load locations first</option>
+                                </select>
+                                <select id="ntProxyServer" aria-label="Proxy server" disabled>
+                                    <option value="">Select a country first</option>
+                                </select>
+                                <button id="ntProxyLoad" type="button"><i class="fas fa-rotate"></i> Load locations</button>
+                                <button id="ntProxyToggle" type="button" disabled><i class="fas fa-power-off"></i> Turn on</button>
+                            </div>
+                            <div id="ntProxyStatus" role="status" aria-live="polite">Only GUST HTTP(S) page requests use this proxy; other apps and WebSocket traffic do not. Country is provider-reported.</div>
+                            <a class="nt-country-proxy-source" href="https://publicvpnlist.com/proxies/" target="_blank" rel="noopener noreferrer">View public proxy list</a>
+                        </section>
                         <div class="nt-service-status" id="ntServiceStatus" data-state="checking" style="display:none;" role="status" aria-live="polite">
                             <span class="nt-service-status-dot checking" aria-hidden="true"></span>
                             <span class="nt-service-status-label">Checking service connectivity…</span>
@@ -12712,6 +12736,51 @@ window._libcurlReady = true;
             // off value, so a fresh install gets pool resilience without opting in.
             function poolModeOn() { try { return ls.getItem('gust:wisp:poolmode:v1') !== '0'; } catch { return true; } }
             function strictWispModeOn() { try { return ls.getItem('gust:wisp:strict:v1') === '1'; } catch { return false; } }
+            const COUNTRY_PROXY_KEY = 'gust:country-proxy:v1';
+            const COUNTRY_PROXY_CATALOG = 'https://publicvpnlist.com/proxies/export.php?format=json';
+            const COUNTRY_PROXY_SCHEMES = { http: 'http', socks4: 'socks4a', socks5: 'socks5h' };
+            function normalizeCountryProxyEntry(entry) {
+                if (!entry || typeof entry !== 'object') return null;
+                const ip = String(entry.ip || '');
+                const octets = ip.split('.');
+                if (octets.length !== 4 || octets.some(part => !/^(?:0|[1-9]\d{0,2})$/.test(part) || Number(part) > 255)) return null;
+                const [a, b, c] = octets.map(Number);
+                if (a === 0 || a === 10 || a === 127 || a >= 224 ||
+                    (a === 100 && b >= 64 && b <= 127) ||
+                    (a === 169 && b === 254) ||
+                    (a === 172 && b >= 16 && b <= 31) ||
+                    (a === 192 && (b === 168 || (b === 0 && c === 0) || (b === 0 && c === 2))) ||
+                    (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+                    (a === 203 && b === 0 && c === 113)) return null;
+                const port = Number(entry.port);
+                const protocol = String(entry.protocol || '').toLowerCase();
+                if (!Number.isInteger(port) || port < 1 || port > 65535 || !COUNTRY_PROXY_SCHEMES[protocol]) return null;
+                const country = String(entry.country || '').trim().slice(0, 80);
+                if (!country) return null;
+                const latency = Number(entry.latencyMs ?? entry.last_success_latency_ms ?? entry.latency_ms);
+                return {
+                    id: String(entry.id || `${protocol}:${ip}:${port}`),
+                    country,
+                    countryCode: String(entry.countryCode || entry.country_code || '').slice(0, 2),
+                    ip,
+                    port,
+                    protocol,
+                    latencyMs: Number.isFinite(latency) && latency >= 0 ? Math.round(latency) : null
+                };
+            }
+            function countryProxyUrl(entry) {
+                const normalized = normalizeCountryProxyEntry(entry);
+                return normalized ? `${COUNTRY_PROXY_SCHEMES[normalized.protocol]}://${normalized.ip}:${normalized.port}` : null;
+            }
+            function getEnabledCountryProxy() {
+                try {
+                    const saved = JSON.parse(ls.getItem(COUNTRY_PROXY_KEY) || 'null');
+                    const entry = normalizeCountryProxyEntry(saved);
+                    return entry && countryProxyUrl(entry) ? entry : null;
+                } catch {
+                    return null;
+                }
+            }
             let wispPoolCheck = { completed: 0, tested: 0, healthy: 0, total: 0, finished: false };
             const SEARCH_ENGINE_NAMES = { brave: 'Brave Search', ddg: 'DuckDuckGo', google: 'Google', bing: 'Bing' };
             function getSearchProbeTarget() {
@@ -16683,7 +16752,7 @@ window._libcurlReady = true;
                 return sizeValidateEnabled();
             }
             async function probeRemoteSize(url, opts) {
-                const base = { headers: opts.headers, signal: opts.signal, tabId: opts.tabId, __sizeProbe: 1 };
+                const base = { headers: opts.headers, signal: opts.signal, tabId: opts.tabId, countryProxy: opts.countryProxy, __sizeProbe: 1 };
                 try {
                     const h = await doFetch(url, { ...base, method: 'HEAD' });
                     const cl = h && h.headers && h.headers['content-length'];
@@ -16725,6 +16794,9 @@ window._libcurlReady = true;
                 if (typeof curl === 'undefined' || curl === null) {
                     return Promise.reject(new Error('libcurl not ready — WISP connection may still be initializing or failed to load'));
                 }
+                const selectedProxy = opts.internal ? null : getEnabledCountryProxy();
+                const countryProxy = selectedProxy ? countryProxyUrl(selectedProxy) : null;
+                const cacheKey = countryProxy ? `${url}\n${countryProxy}` : url;
                 if (shouldSkip(url)) {
                     try {
                         const _bh = new URL(url).hostname.toLowerCase();
@@ -16760,35 +16832,35 @@ window._libcurlReady = true;
                     }
                 } catch (e) {}
 
-                if (memCache.has(url) && opts.method !== "POST") {
+                if (memCache.has(cacheKey) && opts.method !== "POST") {
                     cachedHits++;
                     updateStats();
-                    const _mc = memCache.get(url);
-                    memCache.delete(url);
-                    memCache.set(url, _mc);
+                    const _mc = memCache.get(cacheKey);
+                    memCache.delete(cacheKey);
+                    memCache.set(cacheKey, _mc);
                     return {
                         ..._mc,
                         fromCache: true
                     };
                 }
 
-                const cached = await getCached(url);
+                const cached = await getCached(cacheKey);
                 if (cached && opts.method !== "POST") {
                     let serve = true;
                     if (shouldSizeValidate(url, opts, cached)) {
-                        const remoteSize = await probeRemoteSize(url, opts);
+                        const remoteSize = await probeRemoteSize(url, { ...opts, countryProxy });
                         if (remoteSize != null && remoteSize !== cached.size) {
                             // Changed on the server — evict and fall through to a full
                             // fetch (the queue's success path re-caches the new bytes).
                             serve = false;
-                            deleteCache(url);
-                            memCache.delete(url);
+                            deleteCache(cacheKey);
+                            memCache.delete(cacheKey);
                             log(`<i class="fas fa-rotate" style="color:var(--warn)"></i><span style="color:var(--tx3)">cache stale (${cached.size}→${remoteSize}B), refetching</span> ${url.replace(/^https?:\/\//, '').slice(0, 45)}`, 'warn');
                         }
                     }
                     if (serve) {
                         cachedHits++;
-                        memCache.set(url, {
+                        memCache.set(cacheKey, {
                             status: 200,
                             mime: cached.mime,
                             buf: cached.data,
@@ -16809,8 +16881,8 @@ window._libcurlReady = true;
                     return Promise.reject(new Error('Offline'));
                 }
 
-                if (inFlight.has(url) && opts.method !== "POST") {
-                    const entry = inFlight.get(url);
+                if (inFlight.has(cacheKey) && opts.method !== "POST") {
+                    const entry = inFlight.get(cacheKey);
                     if (entry) {
                         entry.watchers++;
                         let aborted = false;
@@ -16854,10 +16926,11 @@ window._libcurlReady = true;
                     pendingRequests++;
                     updateStats();
 
-                    const _mergedOpts = { ...opts, signal: sharedController.signal };
+                    const _mergedOpts = { ...opts, countryProxy, signal: sharedController.signal };
 
                     const job = {
                         url,
+                        cacheKey,
                         opts: _mergedOpts,
                         res,
                         rej,
@@ -16889,13 +16962,13 @@ window._libcurlReady = true;
 
                 if (opts.method !== "POST") {
                     promise._tabId = activeTabId;
-                    inFlight.set(url, {
+                    inFlight.set(cacheKey, {
                         promise,
                         controller: sharedController,
                         watchers: 1,
                         _tabId: activeTabId
                     });
-                    promise.finally(() => inFlight.delete(url)).catch(() => {});
+                    promise.finally(() => inFlight.delete(cacheKey)).catch(() => {});
                 }
 
                 return promise;
@@ -16934,13 +17007,13 @@ window._libcurlReady = true;
                             const _cc = (r.headers?.['cache-control'] || '').toLowerCase();
                             const _noStore = _cc.includes('no-store') || _cc.includes('private');
                             if (!_noStore) {
-                                memCache.set(job.url, {
+                                memCache.set(job.cacheKey, {
                                     status: r.status,
                                     mime: r.mime,
                                     buf: r.buf,
                                     headers: r.headers
                                 });
-                                setCache(job.url, r.buf, r.mime, r.headers);
+                                setCache(job.cacheKey, r.buf, r.mime, r.headers);
                             }
 
                             if (memCache.size > 600) {
@@ -17083,7 +17156,8 @@ window._libcurlReady = true;
                         // (no cookie jar), so the loop below never runs and Set-Cookie on
                         // redirects — logins, consent, session bootstrap — is lost, and BASE
                         // isn't rebased to the final URL. See redirect-manual-rebases-base.
-                        signal: opts.signal
+                        signal: opts.signal,
+                        proxy: opts.countryProxy || undefined
                     });
                     const abortPromise = new Promise((_, rj) => {
                         if (opts.signal?.aborted) rj(new DOMException("Aborted", "AbortError"));
@@ -17133,7 +17207,7 @@ window._libcurlReady = true;
                             }
                         }
                         if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-                        const retryFetch = curl.fetch(url, { method, headers, body, redirect: 'manual', signal: opts.signal });
+                        const retryFetch = curl.fetch(url, { method, headers, body, redirect: 'manual', signal: opts.signal, proxy: opts.countryProxy || undefined });
                         const retryAbort = new Promise((_, rj) => {
                             if (opts.signal?.aborted) rj(new DOMException("Aborted", "AbortError"));
                             opts.signal?.addEventListener("abort", () => rj(new DOMException("Aborted", "AbortError")));
@@ -17166,7 +17240,8 @@ window._libcurlReady = true;
                         headers,
                         body: _preserve ? body : null,
                         redirect: 'manual',
-                        signal: opts.signal
+                        signal: opts.signal,
+                        proxy: opts.countryProxy || undefined
                     });
                     const rdAbort = new Promise((_, rj) => opts.signal?.addEventListener("abort", () => rj(new DOMException("Aborted", "AbortError"))));
                     resp = await Promise.race([rdFetch, rdAbort]);
@@ -23096,6 +23171,7 @@ _VIEWER_DL_JS +
             }
             $("settingsBtn").onclick = () => go(SETTINGS_INTERNAL);
             wireSettingsEvents();
+            wireCountryProxyControls();
 
             const settingsSearch = $('settingsSearch');
             const settingsSearchStatus = $('settingsSearchStatus');
@@ -23837,6 +23913,136 @@ _VIEWER_DL_JS +
                     } else {
                         $("settingsCustomFilters").value = saved;
                     }
+                }
+            }
+
+            function wireCountryProxyControls() {
+                const countrySelect = $("ntProxyCountry");
+                const serverSelect = $("ntProxyServer");
+                const loadButton = $("ntProxyLoad");
+                const toggleButton = $("ntProxyToggle");
+                const stateLabel = $("ntProxyState");
+                const status = $("ntProxyStatus");
+                if (!countrySelect || !serverSelect || !loadButton || !toggleButton || !stateLabel || !status) return;
+
+                let proxies = [];
+                let loading = false;
+                function updateCountryProxyControls() {
+                    const active = getEnabledCountryProxy();
+                    stateLabel.textContent = active ? `On · ${active.country}` : 'Off';
+                    stateLabel.dataset.active = active ? 'true' : 'false';
+                    toggleButton.textContent = active ? 'Turn off' : 'Turn on';
+                    toggleButton.dataset.active = active ? 'true' : 'false';
+                    toggleButton.disabled = !active && !serverSelect.value;
+                    toggleButton.setAttribute('aria-pressed', active ? 'true' : 'false');
+                    countrySelect.disabled = loading || !!active || countrySelect.options.length < 2;
+                    serverSelect.disabled = loading || !!active || serverSelect.options.length < 2;
+                }
+
+                function renderCountryServers(preferredId = '') {
+                    const countryKey = countrySelect.value;
+                    const active = getEnabledCountryProxy();
+                    const options = proxies.filter(proxy => (proxy.countryCode || proxy.country) === countryKey);
+                    if (active && (active.countryCode || active.country) === countryKey &&
+                        !options.some(proxy => proxy.id === active.id)) options.unshift(active);
+                    serverSelect.replaceChildren(new Option('Select a proxy', ''));
+                    options.forEach(proxy => {
+                        const latency = proxy.latencyMs == null ? 'latency unknown' : `${proxy.latencyMs} ms`;
+                        const option = new Option(`${proxy.protocol.toUpperCase()} · ${proxy.ip}:${proxy.port} · ${latency}`, proxy.id);
+                        serverSelect.add(option);
+                    });
+                    serverSelect.value = options.some(proxy => proxy.id === preferredId)
+                        ? preferredId
+                        : (options[0]?.id || '');
+                    updateCountryProxyControls();
+                }
+
+                function populateCountries(preferredKey = '') {
+                    const countries = new Map();
+                    proxies.forEach(proxy => {
+                        const key = proxy.countryCode || proxy.country;
+                        if (!countries.has(key)) countries.set(key, proxy.country);
+                    });
+                    countrySelect.replaceChildren(new Option('Select a country', ''));
+                    [...countries.entries()]
+                        .sort((a, b) => a[1].localeCompare(b[1]))
+                        .forEach(([key, name]) => countrySelect.add(new Option(name, key)));
+                    const active = getEnabledCountryProxy();
+                    const preferred = preferredKey || (active && (active.countryCode || active.country)) || '';
+                    countrySelect.value = [...countries.keys()].includes(preferred) ? preferred : '';
+                    if (countrySelect.value) renderCountryServers(active?.id || '');
+                    else {
+                        serverSelect.replaceChildren(new Option('Select a country first', ''));
+                        updateCountryProxyControls();
+                    }
+                }
+
+                loadButton.addEventListener('click', async () => {
+                    if (loading) return;
+                    loading = true;
+                    loadButton.disabled = true;
+                    loadButton.textContent = 'Loading…';
+                    status.textContent = 'Loading the latest public proxy locations…';
+                    updateCountryProxyControls();
+                    try {
+                        const cacheBuster = Math.floor(Date.now() / 3600000);
+                        const response = await queueFetch(`${COUNTRY_PROXY_CATALOG}&v=${cacheBuster}`, { internal: true }, PRIORITY.other);
+                        if (response.status < 200 || response.status >= 300) throw new Error(`Catalog returned HTTP ${response.status}`);
+                        const catalog = JSON.parse(new TextDecoder().decode(response.buf));
+                        if (!Array.isArray(catalog.proxies)) throw new Error('Proxy catalog response was not a server list');
+                        proxies = catalog.proxies
+                            .filter(proxy => proxy && (proxy.is_working === true || proxy.ok === true))
+                            .map(normalizeCountryProxyEntry)
+                            .filter(Boolean)
+                            .sort((a, b) => (a.latencyMs ?? Infinity) - (b.latencyMs ?? Infinity));
+                        if (!proxies.length) throw new Error('No working proxy endpoints were listed');
+                        populateCountries();
+                        const count = new Set(proxies.map(proxy => proxy.countryCode || proxy.country)).size;
+                        status.textContent = `${proxies.length} endpoints in ${count} countries are reported working; public proxies can go offline at any time.`;
+                    } catch (error) {
+                        status.textContent = `Could not load proxy locations: ${error.message || error}`;
+                    } finally {
+                        loading = false;
+                        loadButton.disabled = false;
+                        loadButton.innerHTML = '<i class="fas fa-rotate"></i> Load locations';
+                        updateCountryProxyControls();
+                    }
+                });
+
+                countrySelect.addEventListener('change', () => renderCountryServers());
+                toggleButton.addEventListener('click', () => {
+                    const active = getEnabledCountryProxy();
+                    if (active) {
+                        ls.removeItem(COUNTRY_PROXY_KEY);
+                        updateCountryProxyControls();
+                        status.textContent = 'Country proxy turned off. New GUST page requests will use the normal WISP route.';
+                        return;
+                    }
+                    const selected = proxies.find(proxy => proxy.id === serverSelect.value);
+                    if (!selected || !countryProxyUrl(selected)) {
+                        status.textContent = 'Choose a country and a proxy server first.';
+                        return;
+                    }
+                    ls.setItem(COUNTRY_PROXY_KEY, JSON.stringify(selected));
+                    if (!getEnabledCountryProxy()) {
+                        status.textContent = 'Could not save the selected proxy in this browser.';
+                        return;
+                    }
+                    updateCountryProxyControls();
+                    status.textContent = `Applied for new GUST HTTP(S) page requests via ${selected.country}. Reload open pages to refresh them. This is not a full-device VPN.`;
+                });
+
+                const active = getEnabledCountryProxy();
+                if (active) {
+                    stateLabel.textContent = `On · ${active.country}`;
+                    stateLabel.dataset.active = 'true';
+                    toggleButton.textContent = 'Turn off';
+                    toggleButton.dataset.active = 'true';
+                    toggleButton.setAttribute('aria-pressed', 'true');
+                    toggleButton.disabled = false;
+                    status.textContent = `Proxy saved for new GUST HTTP(S) page requests via ${active.country}. This is not a full-device VPN.`;
+                } else {
+                    updateCountryProxyControls();
                 }
             }
 
@@ -31543,119 +31749,6 @@ _VIEWER_DL_JS +
             </div>
         </div>
     </div>
-
-    <script>
-        (() => {
-            const overlay = document.getElementById('releaseCountdown');
-            if (!overlay) return;
-            const removeAt = Date.UTC(2026, 10, 11, 5, 0, 0);
-            if (Date.now() >= removeAt) {
-                overlay.remove();
-                return;
-            }
-
-            const canvas = document.getElementById('releaseFireworks');
-            const button = document.getElementById('releaseViewButton');
-            const context = canvas.getContext('2d');
-            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            let animationFrame = 0;
-            let burstTimer = null;
-            let removeTimer = null;
-            let particles = [];
-            let canvasScale = 1;
-
-            function stopEffects() {
-                if (burstTimer !== null) clearInterval(burstTimer);
-                if (removeTimer !== null) clearTimeout(removeTimer);
-                cancelAnimationFrame(animationFrame);
-                window.removeEventListener('resize', resizeCanvas);
-            }
-
-            function removeOverlayImmediately() {
-                stopEffects();
-                overlay.remove();
-            }
-
-            function revealScout() {
-                if (!overlay.isConnected) return;
-                stopEffects();
-                overlay.classList.add('is-exiting');
-                window.setTimeout(() => overlay.remove(), 800);
-            }
-
-            function resizeCanvas() {
-                if (!context) return;
-                canvasScale = Math.min(window.devicePixelRatio || 1, 1.5);
-                canvas.width = Math.round(window.innerWidth * canvasScale);
-                canvas.height = Math.round(window.innerHeight * canvasScale);
-                context.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
-            }
-
-            function burst(x, y) {
-                const colors = ['#9de5ff', '#ffd36e', '#ff8e83', '#b5a6ff', '#9ff0bb'];
-                const count = 54;
-                for (let i = 0; i < count; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = 1.2 + Math.random() * 4.1;
-                    particles.push({
-                        x, y, px: x, py: y,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        life: 45 + Math.random() * 35,
-                        maxLife: 80,
-                        size: 1.2 + Math.random() * 1.8,
-                        color: colors[Math.floor(Math.random() * colors.length)]
-                    });
-                }
-            }
-
-            function drawFireworks() {
-                if (!overlay.isConnected || reducedMotion || !context) return;
-                const width = window.innerWidth;
-                const height = window.innerHeight;
-                context.fillStyle = 'rgba(7, 11, 18, 0.2)';
-                context.fillRect(0, 0, width, height);
-                particles = particles.filter(particle => particle.life > 0);
-                for (const particle of particles) {
-                    particle.px = particle.x;
-                    particle.py = particle.y;
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    particle.vx *= 0.985;
-                    particle.vy = particle.vy * 0.985 + 0.035;
-                    particle.life--;
-                    context.globalAlpha = Math.max(0, particle.life / particle.maxLife);
-                    context.strokeStyle = particle.color;
-                    context.lineWidth = particle.size;
-                    context.beginPath();
-                    context.moveTo(particle.px, particle.py);
-                    context.lineTo(particle.x, particle.y);
-                    context.stroke();
-                }
-                context.globalAlpha = 1;
-                animationFrame = requestAnimationFrame(drawFireworks);
-            }
-
-            function burstAtRandomPosition() {
-                if (!overlay.isConnected || !context) return;
-                burst(
-                    window.innerWidth * (0.18 + Math.random() * 0.64),
-                    window.innerHeight * (0.18 + Math.random() * 0.5)
-                );
-            }
-
-            overlay.classList.add('is-live');
-            button.addEventListener('click', revealScout);
-            removeTimer = window.setTimeout(removeOverlayImmediately, removeAt - Date.now());
-            if (!reducedMotion && context) {
-                resizeCanvas();
-                burstAtRandomPosition();
-                burstTimer = window.setInterval(burstAtRandomPosition, 1800);
-                animationFrame = requestAnimationFrame(drawFireworks);
-                window.addEventListener('resize', resizeCanvas, { passive: true });
-            }
-        })();
-    </script>
 
 </body>
 
