@@ -12650,12 +12650,16 @@ window._libcurlReady = true;
                 try { ls.setItem('gust:wisp:last-working:v1', url); } catch {}
                 lastWorkingWisp = url;
             }
-            // Priority: user-pinned relay (gust:wisp:v1) > fastest relay learned
-            // in the background last session (gust:wisp:fastest:v1) > hardcoded
-            // default. The middle tier is why fresh installs land on the slow
-            // hardcoded default only once — after the first background probe the
-            // next launch starts on whatever relay is actually fastest.
-            let WISP = (function () { try { return ls.getItem('gust:wisp:v1') || ls.getItem('gust:wisp:fastest:v1') || "wss://wisp.mercurywork.shop/"; } catch { return "wss://wisp.mercurywork.shop/"; } })();
+            // Priority: user-pinned relay > last relay that successfully loaded a
+            // page on this device/network > fastest benchmarked relay > default.
+            let WISP = (function () {
+                try {
+                    return ls.getItem('gust:wisp:v1') || lastWorkingWisp ||
+                        ls.getItem('gust:wisp:fastest:v1') || "wss://wisp.mercurywork.shop/";
+                } catch {
+                    return "wss://wisp.mercurywork.shop/";
+                }
+            })();
             // Default fallback relay used when the primary WISP is unreachable
             // (e.g. the primary is down or blocking the client's network). The
             // fallback path is enabled by default but previously shipped with no
@@ -12710,23 +12714,25 @@ window._libcurlReady = true;
                 if (wispPoolCheck.healthy > 0) {
                     if (wispPoolCheck.finished && wispPoolCheck.tested < wispPoolCheck.total) {
                         state = 'degraded';
-                        message = `Connection available · ${wispPoolCheck.healthy} relays working; check incomplete`;
+                        message = `Connection available from this device · ${wispPoolCheck.healthy} relays working; ${wispPoolCheck.deferred} checks deferred`;
                     } else if (wispPoolCheck.finished && wispPoolCheck.healthy < wispPoolCheck.total) {
                         state = 'degraded';
-                        message = `Service partially available · ${wispPoolCheck.healthy} of ${wispPoolCheck.total} relays available`;
+                        message = `Relays partially available from this device · ${wispPoolCheck.healthy} of ${wispPoolCheck.total} reachable`;
                     } else if (wispPoolCheck.finished) {
                         state = 'online';
-                        message = `Service operational · all ${wispPoolCheck.total} relays available`;
+                        message = `All ${wispPoolCheck.total} relays reachable from this device`;
                     } else {
                         state = 'online';
-                        message = `Service available · ${wispPoolCheck.healthy} relay${wispPoolCheck.healthy === 1 ? '' : 's'} confirmed`;
+                        message = `${wispPoolCheck.healthy} relay${wispPoolCheck.healthy === 1 ? '' : 's'} reachable from this device`;
                     }
                 } else if (wispPoolCheck.finished && wispPoolCheck.tested === wispPoolCheck.total && wispPoolCheck.total > 0) {
                     state = 'down';
-                    message = `Service currently down · all ${wispPoolCheck.total} relays unavailable; search and browsing may fail`;
+                    message = `No relays reachable from this device/network · search and browsing may fail`;
                 } else if (wispPoolCheck.finished && wispPoolCheck.tested < wispPoolCheck.total) {
                     state = 'degraded';
-                    message = `Service status uncertain · ${wispPoolCheck.tested} of ${wispPoolCheck.total} relays checked`;
+                    message = wispPoolCheck.tested === 0
+                        ? `Relay check deferred · active requests prevented testing; run the check again when idle`
+                        : `Relay check incomplete · ${wispPoolCheck.tested} tested, ${wispPoolCheck.deferred} deferred`;
                 } else if (wispPoolCheck.total > 0) {
                     message = `Checking service connectivity · ${wispPoolCheck.completed} of ${wispPoolCheck.total} relays tested`;
                 }
@@ -12796,6 +12802,7 @@ window._libcurlReady = true;
                 return {
                     latency: result.latency,
                     healthy: result.deferred ? null : result.latency !== null,
+                    deferred: !!result.deferred,
                     samples: result.latency === null ? 0 : 1,
                     status: result.status ?? null,
                     error: result.error || (result.deferred ? 'Check deferred while another request was active' : '')
@@ -12811,7 +12818,7 @@ window._libcurlReady = true;
                 _wispBenchmarkPromise = (async () => {
                     try {
                         const pool = getWispPool();
-                        wispPoolCheck = { completed: 0, tested: 0, healthy: 0, total: pool.length, finished: false };
+                        wispPoolCheck = { completed: 0, tested: 0, healthy: 0, deferred: 0, total: pool.length, finished: false };
                         for (const url of pool) delete wispHealth[url];
                         updateHomeServiceStatus();
                         if (typeof renderWispPoolList === 'function') renderWispPoolList();
@@ -12819,14 +12826,14 @@ window._libcurlReady = true;
                         let done = 0;
                         await Promise.all(pool.map(async url => {
                             try {
-                                const { latency, healthy, samples, status, error } = await probeWispPoolServer(url);
-                                wispHealth[url] = { latency, checkedAt: Date.now(), healthy, samples, status, error };
+                                const { latency, healthy, deferred, samples, status, error } = await probeWispPoolServer(url);
+                                wispHealth[url] = { latency, checkedAt: Date.now(), healthy, deferred, samples, status, error };
                                 if (healthy !== null) {
                                     wispPoolCheck.tested++;
                                     if (healthy) wispPoolCheck.healthy++;
-                                }
+                                } else wispPoolCheck.deferred++;
                             } catch (error) {
-                                wispHealth[url] = { latency: null, checkedAt: Date.now(), healthy: false, samples: 0, status: null, error: error.message || 'Tunnel test failed' };
+                                wispHealth[url] = { latency: null, checkedAt: Date.now(), healthy: false, deferred: false, samples: 0, status: null, error: error.message || 'Tunnel test failed' };
                                 wispPoolCheck.tested++;
                                 log(`WISP benchmark failed for ${url}: ${error.message}`, 'err');
                             }
@@ -12840,6 +12847,8 @@ window._libcurlReady = true;
                         wispPoolCheck.finished = true;
                         updateHomeServiceStatus();
                         saveWispHealth();
+                        if (typeof renderWispPoolList === 'function') renderWispPoolList();
+                        if (typeof renderGXWispList === 'function') renderGXWispList();
                     } finally {
                         wispBenchmarking = false;
                     }
@@ -16653,12 +16662,21 @@ window._libcurlReady = true;
 
             function isConnectionFailure(error) {
                 const message = String(error?.message || error || '').toLowerCase();
-                return Number(error?.code) === 7 ||
-                    /\b(?:error(?:\s+code)?|code)\s*[:#]?\s*7\b/.test(message) ||
+                return [5, 6, 7, 28].includes(Number(error?.code)) ||
+                    /\b(?:error(?:\s+code)?|code)\s*[:#]?\s*(?:5|6|7|28)\b/.test(message) ||
                     message.includes('curle_couldnt_connect') ||
+                    message.includes('curle_couldnt_resolve_proxy') ||
+                    message.includes('curle_couldnt_resolve_host') ||
+                    message.includes('curle_operation_timedout') ||
                     message.includes('could not connect') ||
                     message.includes('failed to connect') ||
-                    message.includes('connection refused');
+                    message.includes('connection refused') ||
+                    message.includes('could not resolve') ||
+                    message.includes('name resolution') ||
+                    message.includes('timed out') ||
+                    message.includes('timeout') ||
+                    message.includes('network error') ||
+                    message.includes('failed to fetch');
             }
 
             async function queueFetch(url, opts = {}, priority = PRIORITY.other) {
@@ -21909,6 +21927,7 @@ _VIEWER_DL_JS +
                     if (document.activeElement === urlInput) urlInput.blur();
                     if (!_isRetry) {
                         log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i>Loaded: ` + url + ` <span style="color:var(--tx3);font-size:11px;font-family:var(--mono)">via ${WISP.replace(/^wss?:\/\//, '').split('/')[0]}</span>`, "ok");
+                        persistWorkingWisp(WISP);
                     }
                     addRecentSite(url);
                     updateBookmarkButton();
@@ -21991,6 +22010,9 @@ _VIEWER_DL_JS +
                             ? getWispPool().filter(_candidate => _candidate !== WISP)
                                 .sort((a, b) => (wispHealth[a]?.latency ?? 5000) - (wispHealth[b]?.latency ?? 5000))
                             : (_poolOn ? rankPoolCandidates(_navHost, WISP).slice(0, 4) : []);
+                        if (_isConnectionFailure && lastWorkingWisp && lastWorkingWisp !== WISP && _candidates.includes(lastWorkingWisp)) {
+                            _candidates = [lastWorkingWisp, ..._candidates.filter(_candidate => _candidate !== lastWorkingWisp)];
+                        }
                         if (_fbEnabled && _fbWisp && !_candidates.includes(_fbWisp)) _candidates.push(_fbWisp);
 
                         if (_candidates.length) {
@@ -22020,6 +22042,7 @@ _VIEWER_DL_JS +
                                         if (tabAbortControllers.get(initiatorTabId)?.signal?.aborted) break;
                                         await go(url, false, method, body, true);
                                         _candSuccess = true;
+                                        WISP = _cand;
                                         persistWorkingWisp(_cand);
                                         log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i>Loaded: ${url} <span style="color:var(--tx3);font-size:11px;font-family:var(--mono)">via ${_candHost} (retry ${_ri + 1}/${_fbRetries})</span>`, 'ok');
                                         break;
@@ -22035,9 +22058,19 @@ _VIEWER_DL_JS +
                                 if (_candSuccess) { _poolSuccess = true; break; }
                                 markWispFailed(_cand, _navHost);
                             }
-                            // Restore the sticky primary WISP for subsequent fresh navigations
-                            // regardless of outcome — a successful candidate only serves this retry.
-                            try { await libcurl.load_wasm(); libcurl.set_websocket(WISP); curl = new libcurl.HTTPSession(); curl.set_connections(MAX_CONCURRENT, MAX_CONCURRENT, MAX_CONCURRENT); } catch (_re) {}
+                            // Keep a successful candidate as this device's primary;
+                            // otherwise restore the relay that was active before failover.
+                            try {
+                                const _relayToKeep = _poolSuccess ? WISP : _origWisp;
+                                await libcurl.load_wasm();
+                                libcurl.set_websocket(_relayToKeep);
+                                curl = new libcurl.HTTPSession();
+                                curl.set_connections(MAX_CONCURRENT, MAX_CONCURRENT, MAX_CONCURRENT);
+                                if (_poolSuccess) _navWispSwapped = false;
+                                else WISP = _origWisp;
+                            } catch (_re) {
+                                log(`Could not restore a WISP session after relay failover: ${_re.message}`, 'err');
+                            }
                             if (_poolSuccess) return;
                         } else if (_fbEnabled && !_fbWisp && !_poolOn) {
                             log(`<i class="fas fa-triangle-exclamation" style="color:var(--warn)"></i><span style="color:var(--warn)">Fallback enabled but no fallback WISP configured</span> — set one in Settings → Fallback`, 'warn');
@@ -23420,7 +23453,6 @@ _VIEWER_DL_JS +
                         libcurl.set_websocket(WISP);
                         curl = new libcurl.HTTPSession();
                         curl.set_connections(MAX_CONCURRENT, MAX_CONCURRENT, MAX_CONCURRENT);
-                        persistWorkingWisp(WISP);
                         log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i><span style="color:var(--ok)">libcurl initialized successfully</span>`, "ok");
                         log(`Ready! (${MAX_CONCURRENT} connections, 1h cache) <span style="color:var(--tx3);font-size:11px;font-family:var(--mono)">via ${WISP.replace(/^wss?:\/\//, '').split('/')[0]}</span>`, "ok");
                     } catch (e) {
@@ -23746,7 +23778,8 @@ _VIEWER_DL_JS +
                     let dotColor = 'var(--tx3)', label = 'not tested';
                     if (h) {
                         const suffix = h.samples > 1 ? ` avg×${h.samples}` : '';
-                        if (!h.healthy) { dotColor = 'var(--err)'; label = 'unreachable'; }
+                        if (h.healthy === null) { dotColor = 'var(--tx3)'; label = h.deferred ? 'check deferred' : 'not tested'; }
+                        else if (!h.healthy) { dotColor = 'var(--err)'; label = 'unreachable'; }
                         else if (h.latency < 300) { dotColor = 'var(--ok)'; label = Math.round(h.latency) + 'ms' + suffix; }
                         else if (h.latency < 800) { dotColor = 'var(--warn)'; label = Math.round(h.latency) + 'ms' + suffix; }
                         else { dotColor = 'var(--warn)'; label = Math.round(h.latency) + 'ms (slow)' + suffix; }
@@ -23759,8 +23792,13 @@ _VIEWER_DL_JS +
                 }).join('');
                 const statusEl = $("settingsPoolBenchmarkStatus");
                 if (statusEl) {
-                    const tested = pool.filter(u => wispHealth[u]).length;
-                    statusEl.textContent = tested ? `${tested}/${pool.length} servers benchmarked` : "Not benchmarked yet";
+                    const tested = pool.filter(u => wispHealth[u] && wispHealth[u].healthy !== null).length;
+                    const deferred = pool.filter(u => wispHealth[u]?.healthy === null).length;
+                    statusEl.textContent = wispBenchmarking
+                        ? `Checking relays… ${wispPoolCheck.completed}/${pool.length}`
+                        : tested
+                        ? `${tested}/${pool.length} tested${deferred ? ` · ${deferred} deferred` : ''}`
+                        : deferred ? `0/${pool.length} tested · checks deferred` : "Not benchmarked yet";
                 }
             }
 
@@ -23870,12 +23908,17 @@ _VIEWER_DL_JS +
                 const poolBenchmarkStatus = $("settingsPoolBenchmarkStatus");
                 if (poolBenchmarkBtn) {
                     poolBenchmarkBtn.onclick = async () => {
-                        if (wispBenchmarking) return;
                         poolBenchmarkBtn.disabled = true;
-                        if (poolBenchmarkStatus) poolBenchmarkStatus.textContent = "Benchmarking…";
-                        await benchmarkWispPool();
-                        poolBenchmarkBtn.disabled = false;
-                        if (poolBenchmarkStatus) poolBenchmarkStatus.textContent = "Last run: just now";
+                        if (poolBenchmarkStatus) poolBenchmarkStatus.textContent = "Checking relays…";
+                        try {
+                            await benchmarkWispPool();
+                            renderWispPoolList();
+                        } catch (error) {
+                            log(`WISP benchmark failed: ${error.message || error}`, 'err');
+                            if (poolBenchmarkStatus) poolBenchmarkStatus.textContent = "Relay check failed; see request log";
+                        } finally {
+                            poolBenchmarkBtn.disabled = false;
+                        }
                     };
                 }
 
@@ -28351,7 +28394,8 @@ _VIEWER_DL_JS +
                             const host = url.replace(/^wss?:\/\//, '').split('/')[0];
                             let dot = '#4a4556', label = 'not tested';
                             if (h) {
-                                if (!h.healthy) { dot = 'var(--err)'; label = 'unreachable'; }
+                                if (h.healthy === null) { dot = '#4a4556'; label = h.deferred ? 'deferred' : 'not checked'; }
+                                else if (!h.healthy) { dot = 'var(--err)'; label = 'unreachable'; }
                                 else { dot = h.latency < 300 ? 'var(--ok)' : 'var(--warn)'; label = Math.round(h.latency) + 'ms' + (h.samples > 1 ? ' avg×' + h.samples : ''); }
                             }
                             const isLive = url === WISP;
@@ -28369,14 +28413,20 @@ _VIEWER_DL_JS +
                         gxPlay(nowOn ? 'LIMITER_OFF' : 'LIMITER_ON');
                     });
                     const wispBench = gxControl.querySelector('#gxcWispBench');
-                    wispBench.addEventListener('click', () => {
+                    wispBench.addEventListener('click', async () => {
                         wispBench.disabled = true; wispBench.textContent = 'Benchmarking…';
-                        Promise.resolve(benchmarkWispPool()).then(() => {
+                        try {
+                            await benchmarkWispPool();
                             try { rememberFastestRelay(); } catch (_) {}
                             renderGXWispList();
-                            wispBench.disabled = false; wispBench.textContent = 'Re-benchmark relays now';
+                            wispBench.textContent = 'Re-check relays';
                             gxPlay('LEVEL_UPGRADE');
-                        });
+                        } catch (error) {
+                            log(`WISP benchmark failed: ${error.message || error}`, 'err');
+                            wispBench.textContent = 'Relay check failed — retry';
+                        } finally {
+                            wispBench.disabled = false;
+                        }
                     });
                     function renderHot() {
                         const box = gxControl.querySelector('#gxcHot');
