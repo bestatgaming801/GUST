@@ -7748,6 +7748,7 @@
                                     <option value="">Loading country list…</option>
                                 </select>
                                 <button id="ntProxyToggle" type="button" disabled><i class="fas fa-power-off"></i> Turn off</button>
+                                <button id="ntProxyRetry" type="button" hidden>Retry</button>
                             </div>
                             <div id="ntProxyStatus" role="status" aria-live="polite">Only GUST HTTP(S) page requests use this proxy; other apps and WebSocket traffic do not. Country is provider-reported.</div>
                         </section>
@@ -17328,31 +17329,52 @@ window._libcurlReady = true;
                 }
             }
             async function doFetchWithPoolRetry(url, opts = {}) {
-                let r = await doFetch(url, opts);
-                if (r.status !== 404 || opts.signal?.aborted) return r;
-                if (strictWispModeOn()) return r;
+                let r;
+                let connectionError = null;
+                try {
+                    r = await doFetch(url, opts);
+                } catch (error) {
+                    if (!isConnectionFailure(error) || opts.signal?.aborted) throw error;
+                    connectionError = error;
+                }
+                if (!connectionError && (r.status !== 404 || opts.signal?.aborted)) return r;
+                if (strictWispModeOn()) {
+                    if (connectionError) throw connectionError;
+                    return r;
+                }
                 let host;
-                try { host = new URL(url).hostname; } catch { return r; }
+                try { host = new URL(url).hostname; } catch {
+                    if (connectionError) throw connectionError;
+                    return r;
+                }
                 const poolOn = poolModeOn();
                 const fbWisp = (() => { try { return ls.getItem('gust:fallback:wisp') || DEFAULT_FALLBACK_WISP; } catch { return DEFAULT_FALLBACK_WISP; } })();
                 const candidates = poolOn ? rankPoolCandidates(host, WISP).slice(0, 3) : [];
                 if (fbWisp && fbWisp !== WISP && !candidates.includes(fbWisp)) candidates.push(fbWisp);
-                if (!candidates.length) return r;
+                if (!candidates.length) {
+                    if (connectionError) throw connectionError;
+                    return r;
+                }
 
                 return withWispSwapLock(async () => {
                     _queueDispatchPaused = true;
                     try {
                         const quiet = await waitForQueueQuiet();
-                        if (!quiet || opts.signal?.aborted) return r;
+                        if (!quiet || opts.signal?.aborted) {
+                            if (connectionError) throw connectionError;
+                            return r;
+                        }
                         for (const cand of candidates) {
                             if (opts.signal?.aborted) break;
                             const attempt = await trySwappedFetch(cand, url, opts);
                             if (attempt.status !== 404) {
                                 const h = cand.replace(/^wss?:\/\//, '').split('/')[0];
-                                log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i>404 resolved via <span style="color:var(--tx3);font-family:var(--mono)">${h}</span>: ${url.replace(/^https?:\/\//, '').slice(0, 50)}`, 'ok');
+                                const reason = connectionError ? 'Connection recovered via' : '404 resolved via';
+                                log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i>${reason} <span style="color:var(--tx3);font-family:var(--mono)">${h}</span>: ${url.replace(/^https?:\/\//, '').slice(0, 50)}`, 'ok');
                                 return attempt;
                             }
                         }
+                        if (connectionError) throw connectionError;
                         return r;
                     } finally {
                         _queueDispatchPaused = false;
@@ -23907,9 +23929,10 @@ _VIEWER_DL_JS +
             function wireCountryProxyControls() {
                 const countrySelect = $("ntProxyCountry");
                 const toggleButton = $("ntProxyToggle");
+                const retryButton = $("ntProxyRetry");
                 const stateLabel = $("ntProxyState");
                 const status = $("ntProxyStatus");
-                if (!countrySelect || !toggleButton || !stateLabel || !status) return;
+                if (!countrySelect || !toggleButton || !retryButton || !stateLabel || !status) return;
 
                 let proxies = [];
                 let loading = false;
@@ -23931,6 +23954,7 @@ _VIEWER_DL_JS +
                     toggleButton.dataset.active = active ? 'true' : 'false';
                     toggleButton.disabled = !active;
                     toggleButton.setAttribute('aria-pressed', active ? 'true' : 'false');
+                    retryButton.disabled = loading;
                     countrySelect.disabled = loading || !catalogLoaded;
                 }
 
@@ -23948,6 +23972,7 @@ _VIEWER_DL_JS +
                         .forEach(([key, name]) => countrySelect.add(new Option(`${flagForCountry(key)}  ${name}`, key)));
                     countrySelect.value = active ? countryKey(active) : '';
                     catalogLoaded = true;
+                    retryButton.hidden = true;
                     updateCountryProxyControls();
                 }
 
@@ -23969,6 +23994,7 @@ _VIEWER_DL_JS +
                 async function loadCountryCatalog() {
                     if (loading) return;
                     loading = true;
+                    retryButton.hidden = true;
                     status.textContent = 'Loading country list…';
                     updateCountryProxyControls();
                     try {
@@ -23993,6 +24019,7 @@ _VIEWER_DL_JS +
                         status.textContent = `${count} countries available. Choose one to connect; the fastest listed proxy is selected automatically.`;
                     } catch (error) {
                         status.textContent = `Could not load proxy locations: ${error.message || error}`;
+                        retryButton.hidden = false;
                     } finally {
                         loading = false;
                         updateCountryProxyControls();
@@ -24007,6 +24034,7 @@ _VIEWER_DL_JS +
                     const active = getEnabledCountryProxy();
                     if (active) countrySelect.value = countryKey(active);
                 });
+                retryButton.addEventListener('click', loadCountryCatalog);
                 toggleButton.addEventListener('click', () => {
                     const active = getEnabledCountryProxy();
                     if (!active) return;
