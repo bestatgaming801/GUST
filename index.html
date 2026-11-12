@@ -7739,10 +7739,10 @@
                         </div>
                         <section class="nt-country-proxy" aria-labelledby="ntCountryProxyTitle">
                             <div class="nt-country-proxy-head">
-                                <strong id="ntCountryProxyTitle"><i class="fas fa-globe"></i> Country proxy</strong>
+                                <strong id="ntCountryProxyTitle"><i class="fas fa-globe"></i> Scout VPN Proxy</strong>
                                 <span id="ntProxyState">Off</span>
                             </div>
-                            <p>Choose a country below to connect through a public HTTP/SOCKS proxy for GUST page requests. Public proxies are untrusted and may log or alter traffic.</p>
+                            <p>Choose a country from the list to route Scout page requests through a public proxy. This is not a full-device VPN, and public proxies may log or alter traffic.</p>
                             <div class="nt-country-proxy-controls">
                                 <select id="ntProxyCountry" aria-label="Choose a proxy country" disabled>
                                     <option value="">Loading country list…</option>
@@ -7750,7 +7750,7 @@
                                 <button id="ntProxyToggle" type="button" disabled><i class="fas fa-power-off"></i> Turn off</button>
                                 <button id="ntProxyRetry" type="button" hidden>Retry</button>
                             </div>
-                            <div id="ntProxyStatus" role="status" aria-live="polite">Only GUST HTTP(S) page requests use this proxy; other apps and WebSocket traffic do not. Country is provider-reported.</div>
+                            <div id="ntProxyStatus" role="status" aria-live="polite">Only Scout HTTP(S) page requests use this proxy; other apps and WebSocket traffic do not. Country is provider-reported.</div>
                         </section>
                         <div class="nt-service-status" id="ntServiceStatus" data-state="checking" style="display:none;" role="status" aria-live="polite">
                             <span class="nt-service-status-dot checking" aria-hidden="true"></span>
@@ -12777,7 +12777,7 @@ window._libcurlReady = true;
                 const base = SEARCH_ENGINES[engine] || SEARCH_ENGINES.ddg;
                 return {
                     engine,
-                    url: base + encodeURIComponent('GUST relay connectivity')
+                    url: base + encodeURIComponent('Scout relay connectivity')
                 };
             }
             function updateHomeServiceStatus() {
@@ -23987,7 +23987,7 @@ _VIEWER_DL_JS +
                         status.textContent = 'Could not save the selected proxy in this browser.';
                         return;
                     }
-                    status.textContent = `Connected for new GUST page requests via ${selected.country} (${selected.protocol.toUpperCase()}, ${selected.ip}).`;
+                    status.textContent = `Selected a ${selected.protocol.toUpperCase()} proxy in ${selected.country} for new Scout page requests.`;
                     updateCountryProxyControls();
                 }
 
@@ -24041,12 +24041,12 @@ _VIEWER_DL_JS +
                     ls.removeItem(COUNTRY_PROXY_KEY);
                     countrySelect.value = '';
                     updateCountryProxyControls();
-                    status.textContent = 'Country proxy turned off. New GUST page requests use the normal WISP route.';
+                    status.textContent = 'Scout proxy turned off. New Scout page requests use the normal relay.';
                 });
 
                 const active = getEnabledCountryProxy();
                 if (active) {
-                    status.textContent = `Proxy saved for new GUST HTTP(S) page requests via ${active.country}. This is not a full-device VPN.`;
+                    status.textContent = `Proxy saved for new Scout HTTP(S) page requests via ${active.country}. This is not a full-device VPN.`;
                 }
                 updateCountryProxyControls();
                 loadCountryCatalog();
