@@ -12728,6 +12728,7 @@ window._libcurlReady = true;
             const COUNTRY_PROXY_KEY = 'gust:country-proxy:v1';
             const COUNTRY_PROXY_CATALOG = 'https://publicvpnlist.com/proxies/export.php?format=json';
             const COUNTRY_PROXY_SCHEMES = { http: 'http', socks4: 'socks4a', socks5: 'socks5h' };
+            let COUNTRY_PROXY_CATALOG_ENTRIES = [];
             const COUNTRY_PROXY_COUNTRY_CODES = [
                 'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ',
                 'BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ',
@@ -12768,6 +12769,7 @@ window._libcurlReady = true;
                     ip,
                     port,
                     protocol,
+                    lastCheckOk: entry.last_check_ok === true || entry.ok === true,
                     latencyMs: Number.isFinite(latency) && latency >= 0 ? Math.round(latency) : null
                 };
             }
@@ -17350,6 +17352,36 @@ window._libcurlReady = true;
                 } catch (error) {
                     if (!isConnectionFailure(error) || opts.signal?.aborted) throw error;
                     connectionError = error;
+                }
+                if (connectionError && opts.countryProxy && !opts.signal?.aborted) {
+                    const selected = getEnabledCountryProxy();
+                    const selectedCountry = selected && (selected.countryCode || selected.country);
+                    const alternates = selectedCountry
+                        ? COUNTRY_PROXY_CATALOG_ENTRIES
+                            .filter(entry => (entry.countryCode || entry.country) === selectedCountry)
+                            .filter(entry => countryProxyUrl(entry) !== opts.countryProxy)
+                            .slice(0, 2)
+                        : [];
+                    for (const alternate of alternates) {
+                        if (opts.signal?.aborted) break;
+                        const alternateUrl = countryProxyUrl(alternate);
+                        if (!alternateUrl) continue;
+                        try {
+                            r = await doFetch(url, { ...opts, countryProxy: alternateUrl });
+                            try {
+                                ls.setItem(COUNTRY_PROXY_KEY, JSON.stringify(alternate));
+                            } catch (storageError) {
+                                log(`Could not save the working ${selected.country} proxy: ${storageError.message || storageError}`, 'warn');
+                            }
+                            opts = { ...opts, countryProxy: alternateUrl };
+                            connectionError = null;
+                            log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i>Country proxy connection recovered using another ${selected.country} endpoint`, 'ok');
+                            break;
+                        } catch (error) {
+                            if (!isConnectionFailure(error) || opts.signal?.aborted) throw error;
+                            connectionError = error;
+                        }
+                    }
                 }
                 if (!connectionError && (r.status !== 404 || opts.signal?.aborted)) return r;
                 if (strictWispModeOn()) {
@@ -24039,11 +24071,15 @@ _VIEWER_DL_JS +
                         const catalog = JSON.parse(new TextDecoder().decode(response.buf));
                         if (!Array.isArray(catalog.proxies)) throw new Error('Proxy catalog response was not a server list');
                         proxies = catalog.proxies
-                            .filter(proxy => proxy && (proxy.is_working === true || proxy.ok === true))
+                            .filter(proxy => proxy && (proxy.last_check_ok === true || proxy.ok === true))
                             .map(normalizeCountryProxyEntry)
                             .filter(Boolean)
-                            .sort((a, b) => (a.latencyMs ?? Infinity) - (b.latencyMs ?? Infinity));
+                            .sort((a, b) =>
+                                Number(b.lastCheckOk) - Number(a.lastCheckOk) ||
+                                (a.latencyMs ?? Infinity) - (b.latencyMs ?? Infinity)
+                            );
                         if (!proxies.length) throw new Error('No working proxy endpoints were listed');
+                        COUNTRY_PROXY_CATALOG_ENTRIES = proxies;
                         catalogLoaded = true;
                         const requestedCountry = pendingCountry;
                         pendingCountry = '';
