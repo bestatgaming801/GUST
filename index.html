@@ -2596,7 +2596,7 @@
         }
         .nt-country-proxy-controls {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto auto;
+            grid-template-columns: minmax(0, 1fr) auto;
             gap: 7px;
         }
         .nt-country-proxy-controls select,
@@ -2610,7 +2610,7 @@
             color: var(--tx);
             font: 12px var(--ui);
         }
-        .nt-country-proxy-controls select { padding: 0 8px; }
+        .nt-country-proxy-controls select { padding: 0 10px; }
         .nt-country-proxy-controls button {
             padding: 0 10px;
             cursor: pointer;
@@ -2635,13 +2635,6 @@
             font-size: 10px;
             line-height: 1.45;
         }
-        .nt-country-proxy-source {
-            display: inline-block;
-            margin-top: 5px;
-            color: var(--ac);
-            font-size: 10px;
-        }
-
         .nt-search button {
             height: 44px;
             padding: 0 24px;
@@ -5420,7 +5413,7 @@
         }
 
         @media (max-width: 600px) {
-            .nt-country-proxy-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+            .nt-country-proxy-controls { grid-template-columns: minmax(0, 1fr) auto; }
             .nt-country-proxy-controls button { width: 100%; }
         }
 
@@ -7749,19 +7742,14 @@
                                 <strong id="ntCountryProxyTitle"><i class="fas fa-globe"></i> Country proxy</strong>
                                 <span id="ntProxyState">Off</span>
                             </div>
-                            <p>Use a public HTTP/SOCKS proxy for GUST page requests. Public proxies are untrusted and may log or alter traffic.</p>
+                            <p>Choose a country below to connect through a public HTTP/SOCKS proxy for GUST page requests. Public proxies are untrusted and may log or alter traffic.</p>
                             <div class="nt-country-proxy-controls">
-                                <select id="ntProxyCountry" aria-label="Proxy country" disabled>
-                                    <option value="">Load locations first</option>
+                                <select id="ntProxyCountry" aria-label="Choose a proxy country" disabled>
+                                    <option value="">Loading country list…</option>
                                 </select>
-                                <select id="ntProxyServer" aria-label="Proxy server" disabled>
-                                    <option value="">Select a country first</option>
-                                </select>
-                                <button id="ntProxyLoad" type="button"><i class="fas fa-rotate"></i> Load locations</button>
-                                <button id="ntProxyToggle" type="button" disabled><i class="fas fa-power-off"></i> Turn on</button>
+                                <button id="ntProxyToggle" type="button" disabled><i class="fas fa-power-off"></i> Turn off</button>
                             </div>
                             <div id="ntProxyStatus" role="status" aria-live="polite">Only GUST HTTP(S) page requests use this proxy; other apps and WebSocket traffic do not. Country is provider-reported.</div>
-                            <a class="nt-country-proxy-source" href="https://publicvpnlist.com/proxies/" target="_blank" rel="noopener noreferrer">View public proxy list</a>
                         </section>
                         <div class="nt-service-status" id="ntServiceStatus" data-state="checking" style="display:none;" role="status" aria-live="polite">
                             <span class="nt-service-status-dot checking" aria-hidden="true"></span>
@@ -23918,73 +23906,77 @@ _VIEWER_DL_JS +
 
             function wireCountryProxyControls() {
                 const countrySelect = $("ntProxyCountry");
-                const serverSelect = $("ntProxyServer");
-                const loadButton = $("ntProxyLoad");
                 const toggleButton = $("ntProxyToggle");
                 const stateLabel = $("ntProxyState");
                 const status = $("ntProxyStatus");
-                if (!countrySelect || !serverSelect || !loadButton || !toggleButton || !stateLabel || !status) return;
+                if (!countrySelect || !toggleButton || !stateLabel || !status) return;
 
                 let proxies = [];
                 let loading = false;
+                let catalogLoaded = false;
+                const countryKey = proxy => proxy.countryCode || proxy.country;
+                const flagForCountry = code => {
+                    const value = String(code || '').toUpperCase();
+                    if (!/^[A-Z]{2}$/.test(value)) return '🌐';
+                    return String.fromCodePoint(...[...value].map(letter => 127397 + letter.charCodeAt(0)));
+                };
+
                 function updateCountryProxyControls() {
                     const active = getEnabledCountryProxy();
                     stateLabel.textContent = active ? `On · ${active.country}` : 'Off';
                     stateLabel.dataset.active = active ? 'true' : 'false';
-                    toggleButton.textContent = active ? 'Turn off' : 'Turn on';
+                    toggleButton.innerHTML = active
+                        ? '<i class="fas fa-power-off"></i> Turn off'
+                        : '<i class="fas fa-power-off"></i> Off';
                     toggleButton.dataset.active = active ? 'true' : 'false';
-                    toggleButton.disabled = !active && !serverSelect.value;
+                    toggleButton.disabled = !active;
                     toggleButton.setAttribute('aria-pressed', active ? 'true' : 'false');
-                    countrySelect.disabled = loading || !!active || countrySelect.options.length < 2;
-                    serverSelect.disabled = loading || !!active || serverSelect.options.length < 2;
+                    countrySelect.disabled = loading || !catalogLoaded;
                 }
 
-                function renderCountryServers(preferredId = '') {
-                    const countryKey = countrySelect.value;
-                    const active = getEnabledCountryProxy();
-                    const options = proxies.filter(proxy => (proxy.countryCode || proxy.country) === countryKey);
-                    if (active && (active.countryCode || active.country) === countryKey &&
-                        !options.some(proxy => proxy.id === active.id)) options.unshift(active);
-                    serverSelect.replaceChildren(new Option('Select a proxy', ''));
-                    options.forEach(proxy => {
-                        const latency = proxy.latencyMs == null ? 'latency unknown' : `${proxy.latencyMs} ms`;
-                        const option = new Option(`${proxy.protocol.toUpperCase()} · ${proxy.ip}:${proxy.port} · ${latency}`, proxy.id);
-                        serverSelect.add(option);
-                    });
-                    serverSelect.value = options.some(proxy => proxy.id === preferredId)
-                        ? preferredId
-                        : (options[0]?.id || '');
-                    updateCountryProxyControls();
-                }
-
-                function populateCountries(preferredKey = '') {
+                function populateCountries() {
                     const countries = new Map();
                     proxies.forEach(proxy => {
-                        const key = proxy.countryCode || proxy.country;
+                        const key = countryKey(proxy);
                         if (!countries.has(key)) countries.set(key, proxy.country);
                     });
-                    countrySelect.replaceChildren(new Option('Select a country', ''));
+                    const active = getEnabledCountryProxy();
+                    if (active && !countries.has(countryKey(active))) countries.set(countryKey(active), active.country);
+                    countrySelect.replaceChildren(new Option('Choose a country…', ''));
                     [...countries.entries()]
                         .sort((a, b) => a[1].localeCompare(b[1]))
-                        .forEach(([key, name]) => countrySelect.add(new Option(name, key)));
-                    const active = getEnabledCountryProxy();
-                    const preferred = preferredKey || (active && (active.countryCode || active.country)) || '';
-                    countrySelect.value = [...countries.keys()].includes(preferred) ? preferred : '';
-                    if (countrySelect.value) renderCountryServers(active?.id || '');
-                    else {
-                        serverSelect.replaceChildren(new Option('Select a country first', ''));
-                        updateCountryProxyControls();
-                    }
+                        .forEach(([key, name]) => countrySelect.add(new Option(`${flagForCountry(key)}  ${name}`, key)));
+                    countrySelect.value = active ? countryKey(active) : '';
+                    catalogLoaded = true;
+                    updateCountryProxyControls();
                 }
 
-                loadButton.addEventListener('click', async () => {
+                function applyCountry(country) {
+                    const selected = proxies.find(proxy => countryKey(proxy) === country);
+                    if (!selected) {
+                        status.textContent = 'No working proxy is currently listed for that country.';
+                        return;
+                    }
+                    ls.setItem(COUNTRY_PROXY_KEY, JSON.stringify(selected));
+                    if (!getEnabledCountryProxy()) {
+                        status.textContent = 'Could not save the selected proxy in this browser.';
+                        return;
+                    }
+                    status.textContent = `Connected for new GUST page requests via ${selected.country} (${selected.protocol.toUpperCase()}, ${selected.ip}).`;
+                    updateCountryProxyControls();
+                }
+
+                async function loadCountryCatalog() {
                     if (loading) return;
                     loading = true;
-                    loadButton.disabled = true;
-                    loadButton.textContent = 'Loading…';
-                    status.textContent = 'Loading the latest public proxy locations…';
+                    status.textContent = 'Loading country list…';
                     updateCountryProxyControls();
                     try {
+                        const readyDeadline = Date.now() + 30000;
+                        while (!curl && Date.now() < readyDeadline) {
+                            await new Promise(resolve => setTimeout(resolve, 150));
+                        }
+                        if (!curl) throw new Error('Proxy transport is not ready; reload Scout to retry');
                         const cacheBuster = Math.floor(Date.now() / 3600000);
                         const response = await queueFetch(`${COUNTRY_PROXY_CATALOG}&v=${cacheBuster}`, { internal: true }, PRIORITY.other);
                         if (response.status < 200 || response.status >= 300) throw new Error(`Catalog returned HTTP ${response.status}`);
@@ -23998,52 +23990,38 @@ _VIEWER_DL_JS +
                         if (!proxies.length) throw new Error('No working proxy endpoints were listed');
                         populateCountries();
                         const count = new Set(proxies.map(proxy => proxy.countryCode || proxy.country)).size;
-                        status.textContent = `${proxies.length} endpoints in ${count} countries are reported working; public proxies can go offline at any time.`;
+                        status.textContent = `${count} countries available. Choose one to connect; the fastest listed proxy is selected automatically.`;
                     } catch (error) {
                         status.textContent = `Could not load proxy locations: ${error.message || error}`;
                     } finally {
                         loading = false;
-                        loadButton.disabled = false;
-                        loadButton.innerHTML = '<i class="fas fa-rotate"></i> Load locations';
                         updateCountryProxyControls();
                     }
-                });
+                }
 
-                countrySelect.addEventListener('change', () => renderCountryServers());
+                countrySelect.addEventListener('change', () => {
+                    if (countrySelect.value) {
+                        applyCountry(countrySelect.value);
+                        return;
+                    }
+                    const active = getEnabledCountryProxy();
+                    if (active) countrySelect.value = countryKey(active);
+                });
                 toggleButton.addEventListener('click', () => {
                     const active = getEnabledCountryProxy();
-                    if (active) {
-                        ls.removeItem(COUNTRY_PROXY_KEY);
-                        updateCountryProxyControls();
-                        status.textContent = 'Country proxy turned off. New GUST page requests will use the normal WISP route.';
-                        return;
-                    }
-                    const selected = proxies.find(proxy => proxy.id === serverSelect.value);
-                    if (!selected || !countryProxyUrl(selected)) {
-                        status.textContent = 'Choose a country and a proxy server first.';
-                        return;
-                    }
-                    ls.setItem(COUNTRY_PROXY_KEY, JSON.stringify(selected));
-                    if (!getEnabledCountryProxy()) {
-                        status.textContent = 'Could not save the selected proxy in this browser.';
-                        return;
-                    }
+                    if (!active) return;
+                    ls.removeItem(COUNTRY_PROXY_KEY);
+                    countrySelect.value = '';
                     updateCountryProxyControls();
-                    status.textContent = `Applied for new GUST HTTP(S) page requests via ${selected.country}. Reload open pages to refresh them. This is not a full-device VPN.`;
+                    status.textContent = 'Country proxy turned off. New GUST page requests use the normal WISP route.';
                 });
 
                 const active = getEnabledCountryProxy();
                 if (active) {
-                    stateLabel.textContent = `On · ${active.country}`;
-                    stateLabel.dataset.active = 'true';
-                    toggleButton.textContent = 'Turn off';
-                    toggleButton.dataset.active = 'true';
-                    toggleButton.setAttribute('aria-pressed', 'true');
-                    toggleButton.disabled = false;
                     status.textContent = `Proxy saved for new GUST HTTP(S) page requests via ${active.country}. This is not a full-device VPN.`;
-                } else {
-                    updateCountryProxyControls();
                 }
+                updateCountryProxyControls();
+                loadCountryCatalog();
             }
 
             function renderEngineButtons() {
