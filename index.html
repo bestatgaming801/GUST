@@ -7739,7 +7739,7 @@
                             <input id="ntSearch" placeholder="Search or enter address" autocomplete="off">
                             <button id="ntSearchBtn"><i class="fas fa-arrow-right"></i></button>
                         </div>
-                        <div class="nt-service-status" id="ntServiceStatus" data-state="checking" role="status" aria-live="polite">
+                        <div class="nt-service-status" id="ntServiceStatus" data-state="checking" style="display:none;" role="status" aria-live="polite">
                             <span class="nt-service-status-dot checking" aria-hidden="true"></span>
                             <span class="nt-service-status-label">Checking service connectivity…</span>
                         </div>
@@ -8118,6 +8118,15 @@
                                                 title="Reset to default"><i class="fas fa-rotate-left"></i></button>
                                         </div>
                                         <div class="settings-hint" id="settingsWispStatus">Current server shown above
+                                        </div>
+                                        <div class="settings-switch-row" style="margin-top:14px;">
+                                            <div>
+                                                <div class="settings-switch-label">Use only this WISP server</div>
+                                                <div class="settings-hint">Keep proxied page and search requests on the selected server. Disables relay-pool and fallback switching; failed requests stop instead. This does not route other apps on your device.</div>
+                                            </div>
+                                            <div class="settings-switch" id="settingsWispStrictSwitch">
+                                                <div class="settings-switch-track"><div class="settings-switch-thumb"></div></div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -12689,8 +12698,7 @@ window._libcurlReady = true;
                 "wss://invisiproxy.com/wisp/",         // 369ms
                 "wss://english.algebra.teacher.vocabulary.homework.forwardersoft.com/wisp/" // 361ms
             ])];
-            let wispHealth = (function () { try { return JSON.parse(ls.getItem('gust:wisp:health:v1') || '{}'); } catch { return {}; } })();
-            function saveWispHealth() { try { ls.setItem('gust:wisp:health:v1', JSON.stringify(wispHealth)); } catch {} }
+            let wispHealth = Object.create(null);
             // Per-(server,host) cooldown after a failure — session-only, not persisted.
             const wispHostCooldown = new Map();
             function markWispFailed(url, host, cooldownMs = 5 * 60 * 1000) {
@@ -12703,6 +12711,7 @@ window._libcurlReady = true;
             // Multi-WISP round-robin. Default ON (unset → enabled): '0' is the only
             // off value, so a fresh install gets pool resilience without opting in.
             function poolModeOn() { try { return ls.getItem('gust:wisp:poolmode:v1') !== '0'; } catch { return true; } }
+            function strictWispModeOn() { try { return ls.getItem('gust:wisp:strict:v1') === '1'; } catch { return false; } }
             let wispPoolCheck = { completed: 0, tested: 0, healthy: 0, total: 0, finished: false };
             const SEARCH_ENGINE_NAMES = { brave: 'Brave Search', ddg: 'DuckDuckGo', google: 'Google', bing: 'Bing' };
             function getSearchProbeTarget() {
@@ -12716,6 +12725,10 @@ window._libcurlReady = true;
             function updateHomeServiceStatus() {
                 const status = document.getElementById('ntServiceStatus');
                 if (!status) return;
+                if (!wispPoolCheck.total) {
+                    status.style.display = 'none';
+                    return;
+                }
                 const dot = status.querySelector('.nt-service-status-dot');
                 const label = status.querySelector('.nt-service-status-label');
                 const engine = SEARCH_ENGINE_NAMES[wispPoolCheck.engine] || 'the selected search engine';
@@ -12846,14 +12859,13 @@ window._libcurlReady = true;
             }
             let wispBenchmarking = false;
             let _wispBenchmarkPromise = null;
-            // Returns the in-flight benchmark promise if one is already running, so the
-            // boot gate can await full completion no matter who kicked it off.
+            // Share an active benchmark when multiple UI controls request a check.
             function benchmarkWispPool(onProgress) {
                 if (wispBenchmarking) return _wispBenchmarkPromise;
                 wispBenchmarking = true;
                 _wispBenchmarkPromise = (async () => {
                     try {
-                        const pool = getWispPool();
+                        const pool = strictWispModeOn() ? [WISP] : getWispPool();
                         const searchTarget = getSearchProbeTarget();
                         wispPoolCheck = { completed: 0, tested: 0, healthy: 0, deferred: 0, total: pool.length, finished: false, engine: searchTarget.engine };
                         for (const url of pool) delete wispHealth[url];
@@ -12884,7 +12896,6 @@ window._libcurlReady = true;
                         }));
                         wispPoolCheck.finished = true;
                         updateHomeServiceStatus();
-                        saveWispHealth();
                         if (typeof renderWispPoolList === 'function') renderWispPoolList();
                         if (typeof renderGXWispList === 'function') renderGXWispList();
                     } finally {
@@ -12893,14 +12904,13 @@ window._libcurlReady = true;
                 })();
                 return _wispBenchmarkPromise;
             }
-            // After the pool is benchmarked at startup, remember the fastest
-            // healthy relay as the startup default for NEXT launch
+            // After a manual pool benchmark, remember the fastest healthy relay
+            // as a startup candidate for the next launch
             // (gust:wisp:fastest:v1, read back by the WISP initializer above).
             // Reuses benchmarkWispPool's latency data — no extra probing. Never
             // overrides a user-pinned relay and never swaps the live tunnel
             // mid-session (which would corrupt in-flight fetches on the global
-            // websocket), so it's purely a next-launch optimization with zero
-            // regression surface this session.
+            // websocket), so it never changes the active connection.
             function rememberFastestRelay() {
                 try { if (ls.getItem('gust:wisp:v1')) return; } catch {}
                 const ranked = getWispPool()
@@ -12932,6 +12942,18 @@ window._libcurlReady = true;
             function pickPoolWisp(host) {
                 const ranked = rankPoolCandidates(host, null);
                 if (!ranked.length) return null;
+                const hasCurrentEngineBenchmark = ranked.some(url =>
+                    wispHealth[url]?.engine === selectedEngine &&
+                    wispHealth[url]?.healthy === true &&
+                    wispHealth[url]?.latency != null
+                );
+                if (!hasCurrentEngineBenchmark) {
+                    const pinnedWisp = (() => { try { return ls.getItem('gust:wisp:v1'); } catch { return null; } })();
+                    if (pinnedWisp && ranked.includes(pinnedWisp)) return pinnedWisp;
+                    if (lastWorkingWisp && ranked.includes(lastWorkingWisp)) return lastWorkingWisp;
+                    if (ranked.includes(WISP)) return WISP;
+                    return ranked[0];
+                }
                 const weights = ranked.map(u => {
                     const lat = wispHealth[u]?.latency;
                     return lat ? Math.max(1, Math.round(4000 / lat)) : 2;
@@ -16550,33 +16572,6 @@ window._libcurlReady = true;
                 });
             }
 
-            // ── Boot benchmark splash ───────────────────────────────────────────
-            // Full-viewport gate shown while the WISP pool is benchmarked at startup
-            // (pool mode). Just the GUST mark + spinner; blocks page loads until the
-            // pool has real latency data so the first navigation round-robins well.
-            let _bootSplashEl = null;
-            function showBootBenchmark() {
-                if (_bootSplashEl) return;
-                const el = document.createElement('div');
-                _bootSplashEl = el;
-                el.className = 'overlay splash boot-bench';
-                el.style.cssText = 'z-index:99995;gap:22px;';
-                el.innerHTML =
-                    '<div class="boot-bench-spin"><div class="spinner"></div></div>' +
-                    '<div class="boot-bench-txt" id="bootBenchTxt">Benchmarking relays…</div>';
-                document.body.appendChild(el);
-            }
-            function setBootBenchmarkProgress(done, total) {
-                const t = document.getElementById('bootBenchTxt');
-                if (t) t.textContent = `Benchmarking relays… ${done}/${total}`;
-            }
-            function hideBootBenchmark() {
-                if (!_bootSplashEl) return;
-                const el = _bootSplashEl; _bootSplashEl = null;
-                el.style.transition = 'opacity .25s'; el.style.opacity = '0';
-                setTimeout(() => el.remove(), 260);
-            }
-
             function hideOverlay() {
                 overlay.classList.add("hidden");
                 overlay.classList.remove('error');
@@ -17272,6 +17267,7 @@ window._libcurlReady = true;
             async function doFetchWithPoolRetry(url, opts = {}) {
                 let r = await doFetch(url, opts);
                 if (r.status !== 404 || opts.signal?.aborted) return r;
+                if (strictWispModeOn()) return r;
                 let host;
                 try { host = new URL(url).hostname; } catch { return r; }
                 const poolOn = poolModeOn();
@@ -20924,7 +20920,7 @@ _VIEWER_DL_JS +
                 if (!_isRetry && typeof curl !== 'undefined' && curl) {
                     try {
                         const _poolOn = poolModeOn();
-                        if (_poolOn) {
+                        if (_poolOn && !strictWispModeOn()) {
                             const _navHost = new URL(url).hostname;
                             const _picked = pickPoolWisp(_navHost);
                             if (_picked && _picked !== WISP) {
@@ -22049,15 +22045,16 @@ _VIEWER_DL_JS +
                         // ── Phase 2: rotate through the WISP pool / fallback ─────
                         const _navHost = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
                         const _poolOn = poolModeOn();
+                        const _strictWisp = strictWispModeOn();
                         markWispFailed(WISP, _navHost);
-                        let _candidates = _isConnectionFailure
+                        let _candidates = _strictWisp ? [] : _isConnectionFailure
                             ? getWispPool().filter(_candidate => _candidate !== WISP)
                                 .sort((a, b) => (wispHealth[a]?.latency ?? 5000) - (wispHealth[b]?.latency ?? 5000))
                             : (_poolOn ? rankPoolCandidates(_navHost, WISP).slice(0, 4) : []);
                         if (_isConnectionFailure && lastWorkingWisp && lastWorkingWisp !== WISP && _candidates.includes(lastWorkingWisp)) {
                             _candidates = [lastWorkingWisp, ..._candidates.filter(_candidate => _candidate !== lastWorkingWisp)];
                         }
-                        if (_fbEnabled && _fbWisp && !_candidates.includes(_fbWisp)) _candidates.push(_fbWisp);
+                        if (!_strictWisp && _fbEnabled && _fbWisp && !_candidates.includes(_fbWisp)) _candidates.push(_fbWisp);
 
                         if (_candidates.length) {
                             let _poolSuccess = false;
@@ -23099,10 +23096,6 @@ _VIEWER_DL_JS +
             }
             $("settingsBtn").onclick = () => go(SETTINGS_INTERNAL);
             wireSettingsEvents();
-            // Background-benchmark the WISP pool at startup so round-robin picks
-            // (if enabled) already have latency data for the first navigation, then
-            // remember the fastest healthy relay as next launch's startup default.
-            Promise.resolve(benchmarkWispPool()).then(rememberFastestRelay, () => {});
 
             const settingsSearch = $('settingsSearch');
             const settingsSearchStatus = $('settingsSearchStatus');
@@ -23511,29 +23504,6 @@ _VIEWER_DL_JS +
 
                     hideOverlay();
                     updateNav();
-
-                    // ── Boot gate: full WISP-pool benchmark before any page loads ──
-                    // With multi-WISP round-robin on (default), hold navigation behind
-                    // a complete pool benchmark so the first fetch already has real
-                    // latency data to pick from. Capped so a dead network can't hang
-                    // boot forever — after the cap the benchmark finishes in the
-                    // background and navigation proceeds.
-                    // ponytail: 25s cap; raise only if huge pools routinely exceed it.
-                    if (poolModeOn() && typeof curl !== 'undefined' && curl) {
-                        try {
-                            showBootBenchmark();
-                            const bench = benchmarkWispPool(setBootBenchmarkProgress).then(() => { try { rememberFastestRelay(); } catch (e) {} });
-                            // live progress even when setup started the benchmark first
-                            const tick = setInterval(() => {
-                                const pool = getWispPool();
-                                setBootBenchmarkProgress(pool.filter(u => wispHealth[u]).length, pool.length);
-                            }, 200);
-                            await Promise.race([bench, new Promise(r => setTimeout(r, 25000))]);
-                            clearInterval(tick);
-                        } catch (e) {} finally {
-                            hideBootBenchmark();
-                        }
-                    }
 
             // Signal that libcurl init is complete so deferred UI (tutorial, etc.) can start
                     if (window._onLibcurlInitDone) window._onLibcurlInitDone();
@@ -23957,6 +23927,7 @@ _VIEWER_DL_JS +
                         if (poolBenchmarkStatus) poolBenchmarkStatus.textContent = "Checking relays…";
                         try {
                             await benchmarkWispPool();
+                            rememberFastestRelay();
                             renderWispPoolList();
                         } catch (error) {
                             log(`WISP benchmark failed: ${error.message || error}`, 'err');
@@ -24442,6 +24413,7 @@ _VIEWER_DL_JS +
                     { id: 'webrtcBlockSwitch',   key: 'gust:webrtc:block:v1',   defaultOn: true  },
                     { id: 'faviconProxySwitch',  key: 'gust:favicon-proxy:v1',  defaultOn: false },
                     { id: 'settingsPoolModeSwitch', key: 'gust:wisp:poolmode:v1', defaultOn: true },
+                    { id: 'settingsWispStrictSwitch', key: 'gust:wisp:strict:v1', defaultOn: false },
                 ];
                 _mediaSwitches.forEach(({ id, key, defaultOn }) => {
                     const sw = $(id);
