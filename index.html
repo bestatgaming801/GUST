@@ -12729,6 +12729,7 @@ window._libcurlReady = true;
             const COUNTRY_PROXY_CATALOG = 'https://publicvpnlist.com/proxies/export.php?format=json';
             const COUNTRY_PROXY_SCHEMES = { http: 'http', socks4: 'socks4a', socks5: 'socks5h' };
             let COUNTRY_PROXY_CATALOG_ENTRIES = [];
+            const COUNTRY_PROXY_FAILED_IDS = new Set();
             const COUNTRY_PROXY_COUNTRY_CODES = [
                 'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ',
                 'BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ',
@@ -12770,6 +12771,7 @@ window._libcurlReady = true;
                     port,
                     protocol,
                     lastCheckOk: entry.last_check_ok === true || entry.ok === true,
+                    httpsOk: entry.https_ok === true,
                     latencyMs: Number.isFinite(latency) && latency >= 0 ? Math.round(latency) : null
                 };
             }
@@ -17356,30 +17358,56 @@ window._libcurlReady = true;
                 if (connectionError && opts.countryProxy && !opts.signal?.aborted) {
                     const selected = getEnabledCountryProxy();
                     const selectedCountry = selected && (selected.countryCode || selected.country);
+                    if (selected) COUNTRY_PROXY_FAILED_IDS.add(selected.id);
                     const alternates = selectedCountry
                         ? COUNTRY_PROXY_CATALOG_ENTRIES
                             .filter(entry => (entry.countryCode || entry.country) === selectedCountry)
                             .filter(entry => countryProxyUrl(entry) !== opts.countryProxy)
-                            .slice(0, 2)
+                            .filter(entry => !COUNTRY_PROXY_FAILED_IDS.has(entry.id))
+                            .slice(0, 3)
                         : [];
                     for (const alternate of alternates) {
                         if (opts.signal?.aborted) break;
                         const alternateUrl = countryProxyUrl(alternate);
                         if (!alternateUrl) continue;
+                        const attemptController = new AbortController();
+                        let timedOut = false;
+                        const abortForParent = () => attemptController.abort();
+                        if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+                        opts.signal?.addEventListener('abort', abortForParent, { once: true });
+                        const timeout = setTimeout(() => {
+                            timedOut = true;
+                            attemptController.abort();
+                        }, 5000);
                         try {
-                            r = await doFetch(url, { ...opts, countryProxy: alternateUrl });
+                            r = await doFetch(url, {
+                                ...opts,
+                                countryProxy: alternateUrl,
+                                signal: attemptController.signal
+                            });
                             try {
                                 ls.setItem(COUNTRY_PROXY_KEY, JSON.stringify(alternate));
                             } catch (storageError) {
                                 log(`Could not save the working ${selected.country} proxy: ${storageError.message || storageError}`, 'warn');
                             }
                             opts = { ...opts, countryProxy: alternateUrl };
+                            COUNTRY_PROXY_FAILED_IDS.delete(alternate.id);
                             connectionError = null;
-                            log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i>Country proxy connection recovered using another ${selected.country} endpoint`, 'ok');
+                            log(`<i class="fas fa-circle-check" style="color:var(--ok)"></i>Country proxy connection recovered using another ${escapeHtml(selected.country)} endpoint`, 'ok');
                             break;
                         } catch (error) {
+                            if (opts.signal?.aborted) throw error;
+                            COUNTRY_PROXY_FAILED_IDS.add(alternate.id);
+                            if (timedOut) {
+                                connectionError = new TypeError('Country proxy connection timed out');
+                                log('Country proxy endpoint timed out; trying another endpoint', 'warn');
+                                continue;
+                            }
                             if (!isConnectionFailure(error) || opts.signal?.aborted) throw error;
                             connectionError = error;
+                        } finally {
+                            clearTimeout(timeout);
+                            opts.signal?.removeEventListener('abort', abortForParent);
                         }
                     }
                 }
@@ -23984,6 +24012,8 @@ _VIEWER_DL_JS +
                 let loading = false;
                 let catalogLoaded = false;
                 let pendingCountry = '';
+                let connecting = false;
+                let verifiedProxyId = '';
                 const countryKey = proxy => proxy.countryCode || proxy.country;
                 const countryNames = typeof Intl.DisplayNames === 'function'
                     ? new Intl.DisplayNames(['en'], { type: 'region' })
@@ -23997,16 +24027,21 @@ _VIEWER_DL_JS +
 
                 function updateCountryProxyControls() {
                     const active = getEnabledCountryProxy();
-                    stateLabel.textContent = active ? `On · ${active.country}` : 'Off';
-                    stateLabel.dataset.active = active ? 'true' : 'false';
+                    const connected = active && verifiedProxyId === active.id;
+                    stateLabel.textContent = connecting
+                        ? `Connecting · ${active?.country || ''}`
+                        : connected
+                            ? `On · ${active.country}`
+                            : active ? `Selected · ${active.country}` : 'Off';
+                    stateLabel.dataset.active = connected ? 'true' : 'false';
                     toggleButton.innerHTML = active
                         ? '<i class="fas fa-power-off"></i> Turn off'
                         : '<i class="fas fa-power-off"></i> Off';
                     toggleButton.dataset.active = active ? 'true' : 'false';
-                    toggleButton.disabled = !active;
+                    toggleButton.disabled = !active || connecting;
                     toggleButton.setAttribute('aria-pressed', active ? 'true' : 'false');
                     retryButton.disabled = loading;
-                    countrySelect.disabled = false;
+                    countrySelect.disabled = connecting;
                 }
 
                 function populateCountries() {
@@ -24038,6 +24073,38 @@ _VIEWER_DL_JS +
                     updateCountryProxyControls();
                 }
 
+                async function testCountryProxy(selected) {
+                    connecting = true;
+                    verifiedProxyId = '';
+                    status.textContent = `Checking the ${selected.country} proxy connection…`;
+                    updateCountryProxyControls();
+                    try {
+                        const probe = await queueFetch(
+                            `https://example.com/?scout-proxy-check=${Date.now()}`,
+                            { headers: { Accept: 'text/html' } },
+                            PRIORITY.other
+                        );
+                        if (probe.skipped) throw new Error('Connection check was blocked locally');
+                        if (probe.status < 200 || probe.status >= 500 || probe.status === 407) {
+                            throw new Error(`Connection check returned HTTP ${probe.status}`);
+                        }
+                        const active = getEnabledCountryProxy();
+                        if (!active) throw new Error('The selected proxy is no longer enabled');
+                        verifiedProxyId = active.id;
+                        status.textContent = `Connected through a ${active.protocol.toUpperCase()} proxy in ${active.country}.`;
+                    } catch (error) {
+                        const active = getEnabledCountryProxy();
+                        if (active && countryKey(active) === countryKey(selected)) {
+                            ls.removeItem(COUNTRY_PROXY_KEY);
+                        }
+                        countrySelect.value = '';
+                        status.textContent = `Could not connect through ${selected.country}: ${error.message || error}. Choose another country and try again.`;
+                    } finally {
+                        connecting = false;
+                        updateCountryProxyControls();
+                    }
+                }
+
                 function applyCountry(country) {
                     const selected = proxies.find(proxy => countryKey(proxy) === country);
                     if (!selected) {
@@ -24049,7 +24116,7 @@ _VIEWER_DL_JS +
                         status.textContent = 'Could not save the selected proxy in this browser.';
                         return;
                     }
-                    status.textContent = `Selected a ${selected.protocol.toUpperCase()} proxy in ${selected.country} for new Scout page requests.`;
+                    testCountryProxy(selected);
                     updateCountryProxyControls();
                 }
 
@@ -24071,7 +24138,7 @@ _VIEWER_DL_JS +
                         const catalog = JSON.parse(new TextDecoder().decode(response.buf));
                         if (!Array.isArray(catalog.proxies)) throw new Error('Proxy catalog response was not a server list');
                         proxies = catalog.proxies
-                            .filter(proxy => proxy && (proxy.last_check_ok === true || proxy.ok === true))
+                            .filter(proxy => proxy && proxy.https_ok === true && (proxy.last_check_ok === true || proxy.ok === true))
                             .map(normalizeCountryProxyEntry)
                             .filter(Boolean)
                             .sort((a, b) =>
@@ -24080,6 +24147,20 @@ _VIEWER_DL_JS +
                             );
                         if (!proxies.length) throw new Error('No working proxy endpoints were listed');
                         COUNTRY_PROXY_CATALOG_ENTRIES = proxies;
+                        const active = getEnabledCountryProxy();
+                        if (active) {
+                            const sameCountryProxy = proxies.find(proxy =>
+                                (proxy.countryCode || proxy.country) === (active.countryCode || active.country)
+                            );
+                            if (sameCountryProxy && !proxies.some(proxy => countryProxyUrl(proxy) === countryProxyUrl(active))) {
+                                try {
+                                    ls.setItem(COUNTRY_PROXY_KEY, JSON.stringify(sameCountryProxy));
+                                    status.textContent = `Refreshed the saved proxy for ${sameCountryProxy.country}.`;
+                                } catch (storageError) {
+                                    log(`Could not refresh the saved country proxy: ${storageError.message || storageError}`, 'warn');
+                                }
+                            }
+                        }
                         catalogLoaded = true;
                         const requestedCountry = pendingCountry;
                         pendingCountry = '';
@@ -24094,7 +24175,12 @@ _VIEWER_DL_JS +
                             }
                         } else {
                             const count = new Set(proxies.map(proxy => proxy.countryCode || proxy.country)).size;
-                            status.textContent = `${count} countries available. Choose one to connect; the fastest listed proxy is selected automatically.`;
+                            const activeProxy = getEnabledCountryProxy();
+                            if (activeProxy) {
+                                testCountryProxy(activeProxy);
+                            } else {
+                                status.textContent = `${count} countries available. Choose one to connect; the fastest recently checked proxy is selected automatically.`;
+                            }
                         }
                     } catch (error) {
                         status.textContent = `Could not load proxy locations: ${error.message || error}`;
@@ -24123,6 +24209,7 @@ _VIEWER_DL_JS +
                     const active = getEnabledCountryProxy();
                     if (!active) return;
                     ls.removeItem(COUNTRY_PROXY_KEY);
+                    verifiedProxyId = '';
                     countrySelect.value = '';
                     updateCountryProxyControls();
                     status.textContent = 'Scout proxy turned off. New Scout page requests use the normal relay.';
