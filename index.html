@@ -7744,8 +7744,8 @@
                             </div>
                             <p>Choose a country from the list to route Scout page requests through a public proxy. This is not a full-device VPN, and public proxies may log or alter traffic.</p>
                             <div class="nt-country-proxy-controls">
-                                <select id="ntProxyCountry" aria-label="Choose a proxy country" disabled>
-                                    <option value="">Loading country list…</option>
+                                <select id="ntProxyCountry" aria-label="Choose a proxy country">
+                                    <option value="">Choose a country…</option>
                                 </select>
                                 <button id="ntProxyToggle" type="button" disabled><i class="fas fa-power-off"></i> Turn off</button>
                                 <button id="ntProxyRetry" type="button" hidden>Retry</button>
@@ -12728,6 +12728,20 @@ window._libcurlReady = true;
             const COUNTRY_PROXY_KEY = 'gust:country-proxy:v1';
             const COUNTRY_PROXY_CATALOG = 'https://publicvpnlist.com/proxies/export.php?format=json';
             const COUNTRY_PROXY_SCHEMES = { http: 'http', socks4: 'socks4a', socks5: 'socks5h' };
+            const COUNTRY_PROXY_COUNTRY_CODES = [
+                'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ',
+                'BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ',
+                'CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ',
+                'DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR',
+                'GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY',
+                'HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP',
+                'KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY',
+                'MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ',
+                'NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY',
+                'QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ',
+                'TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ',
+                'VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'
+            ].join(' ').split(' ');
             function normalizeCountryProxyEntry(entry) {
                 if (!entry || typeof entry !== 'object') return null;
                 const ip = String(entry.ip || '');
@@ -12750,7 +12764,7 @@ window._libcurlReady = true;
                 return {
                     id: String(entry.id || `${protocol}:${ip}:${port}`),
                     country,
-                    countryCode: String(entry.countryCode || entry.country_code || '').slice(0, 2),
+                    countryCode: String(entry.countryCode || entry.country_code || '').slice(0, 2).toUpperCase(),
                     ip,
                     port,
                     protocol,
@@ -23937,7 +23951,12 @@ _VIEWER_DL_JS +
                 let proxies = [];
                 let loading = false;
                 let catalogLoaded = false;
+                let pendingCountry = '';
                 const countryKey = proxy => proxy.countryCode || proxy.country;
+                const countryNames = typeof Intl.DisplayNames === 'function'
+                    ? new Intl.DisplayNames(['en'], { type: 'region' })
+                    : null;
+                const countryName = code => countryNames?.of(code) || code;
                 const flagForCountry = code => {
                     const value = String(code || '').toUpperCase();
                     if (!/^[A-Z]{2}$/.test(value)) return '🌐';
@@ -23955,7 +23974,7 @@ _VIEWER_DL_JS +
                     toggleButton.disabled = !active;
                     toggleButton.setAttribute('aria-pressed', active ? 'true' : 'false');
                     retryButton.disabled = loading;
-                    countrySelect.disabled = loading || !catalogLoaded;
+                    countrySelect.disabled = false;
                 }
 
                 function populateCountries() {
@@ -23965,14 +23984,25 @@ _VIEWER_DL_JS +
                         if (!countries.has(key)) countries.set(key, proxy.country);
                     });
                     const active = getEnabledCountryProxy();
-                    if (active && !countries.has(countryKey(active))) countries.set(countryKey(active), active.country);
+                    const countryCodes = new Set(COUNTRY_PROXY_COUNTRY_CODES);
+                    countries.forEach((name, key) => {
+                        if (!countryCodes.has(key)) countryCodes.add(key);
+                    });
+                    if (active && !countries.has(countryKey(active))) {
+                        countries.set(countryKey(active), active.country);
+                        countryCodes.add(countryKey(active));
+                    }
                     countrySelect.replaceChildren(new Option('Choose a country…', ''));
-                    [...countries.entries()]
-                        .sort((a, b) => a[1].localeCompare(b[1]))
-                        .forEach(([key, name]) => countrySelect.add(new Option(`${flagForCountry(key)}  ${name}`, key)));
+                    [...countryCodes]
+                        .map(code => ({ code, name: countries.get(code) || countryName(code) }))
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .forEach(({ code, name }) => {
+                            const option = new Option(`${flagForCountry(code)}  ${name}`, code);
+                            option.disabled = catalogLoaded && !countries.has(code) &&
+                                (!active || countryKey(active) !== code);
+                            countrySelect.add(option);
+                        });
                     countrySelect.value = active ? countryKey(active) : '';
-                    catalogLoaded = true;
-                    retryButton.hidden = true;
                     updateCountryProxyControls();
                 }
 
@@ -23995,7 +24025,7 @@ _VIEWER_DL_JS +
                     if (loading) return;
                     loading = true;
                     retryButton.hidden = true;
-                    status.textContent = 'Loading country list…';
+                    status.textContent = 'Country options are ready. Checking proxy availability…';
                     updateCountryProxyControls();
                     try {
                         const readyDeadline = Date.now() + 30000;
@@ -24014,9 +24044,22 @@ _VIEWER_DL_JS +
                             .filter(Boolean)
                             .sort((a, b) => (a.latencyMs ?? Infinity) - (b.latencyMs ?? Infinity));
                         if (!proxies.length) throw new Error('No working proxy endpoints were listed');
+                        catalogLoaded = true;
+                        const requestedCountry = pendingCountry;
+                        pendingCountry = '';
                         populateCountries();
-                        const count = new Set(proxies.map(proxy => proxy.countryCode || proxy.country)).size;
-                        status.textContent = `${count} countries available. Choose one to connect; the fastest listed proxy is selected automatically.`;
+                        if (requestedCountry) {
+                            if (proxies.some(proxy => countryKey(proxy) === requestedCountry)) {
+                                countrySelect.value = requestedCountry;
+                                applyCountry(requestedCountry);
+                            } else {
+                                countrySelect.value = '';
+                                status.textContent = `No working proxy is currently listed for ${countryName(requestedCountry)}.`;
+                            }
+                        } else {
+                            const count = new Set(proxies.map(proxy => proxy.countryCode || proxy.country)).size;
+                            status.textContent = `${count} countries available. Choose one to connect; the fastest listed proxy is selected automatically.`;
+                        }
                     } catch (error) {
                         status.textContent = `Could not load proxy locations: ${error.message || error}`;
                         retryButton.hidden = false;
@@ -24028,6 +24071,11 @@ _VIEWER_DL_JS +
 
                 countrySelect.addEventListener('change', () => {
                     if (countrySelect.value) {
+                        if (!catalogLoaded) {
+                            pendingCountry = countrySelect.value;
+                            loadCountryCatalog();
+                            return;
+                        }
                         applyCountry(countrySelect.value);
                         return;
                     }
@@ -24048,6 +24096,7 @@ _VIEWER_DL_JS +
                 if (active) {
                     status.textContent = `Proxy saved for new Scout HTTP(S) page requests via ${active.country}. This is not a full-device VPN.`;
                 }
+                populateCountries();
                 updateCountryProxyControls();
                 loadCountryCatalog();
             }
